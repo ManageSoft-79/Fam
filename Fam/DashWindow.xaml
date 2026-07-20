@@ -1,0 +1,721 @@
+﻿<Window x:Class="Fam.DashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Fam"
+        mc:Ignorable="d"
+        Title="Dashboard" Height="650" Width="1000" Closing="Window_Closing" WindowStartupLocation="CenterScreen" WindowState="Maximized">
+    <Window.Resources>
+        <Style TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style TargetType="GridViewRowPresenter">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style TargetType="{x:Type ProgressBar}">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <!--<Setter Property="RenderTransform">
+                <Setter.Value>
+                    <RotateTransform Angle="180"/>
+                </Setter.Value>
+            </Setter>-->
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Opacity" Value="0.2"/>
+        </Style>
+        <Style TargetType="{x:Type TextBlock}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=.}" Value="0">
+                    <Setter Property="Text" Value="-"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <GroupStyle x:Key="group01">
+            <GroupStyle.HeaderTemplate>
+                <DataTemplate>
+                    <TextBlock FontWeight="Bold" Text="{Binding Name}" Background="LightSlateGray" Foreground="White" Padding="12,3"/>
+                </DataTemplate>
+            </GroupStyle.HeaderTemplate>
+        </GroupStyle>
+    </Window.Resources>
+
+    <Grid Background="#EEEEEE">
+        <Grid RowDefinitions="auto,*,auto" Margin="10">
+            <Border Background="PaleGoldenrod" CornerRadius="10" >
+                <Grid ColumnDefinitions="*,Auto" Margin="15,10">
+                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged, FallbackValue='Portfolio'}" FontSize="22px" FontWeight="Bold" Background="Transparent" BorderThickness="0" VerticalAlignment="Center" HorizontalAlignment="Left" ToolTip="Rename"/>
+
+                    <StackPanel VerticalAlignment="Center"  Grid.Column="1">
+                        <TextBlock Text="{Binding Xirrlifetime, StringFormat=P0, FallbackValue='-%'}" FontSize="20px" TextAlignment="Right" FontWeight="Bold" ToolTip="All time XIRR"/>
+                        <!--Wtdavgdayslifetime-->
+                        <TextBlock Text="{Binding XirrHolding, StringFormat=P0, FallbackValue='-%'}" TextAlignment="Right" FontWeight="Bold" ToolTip="Holding XIRR"/>
+                        <!--Wtdavgdaysholding-->
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="auto,*" Margin="0,10,0,0">
+                <StackPanel Margin="0,0,10,0">
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleTrasactions" Content="Transactions" Margin="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" Padding="35,10" Background="White" BorderThickness="0" />
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleFolios" Content="Folios" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleMutualfunds" Content="Mutual funds" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleCategories" Content="Categories" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleCapitalgains" Content="Capital gains" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleChart" Content="Chart" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+
+                </StackPanel>
+
+                <Border Grid.Column="1" Background="White" CornerRadius="10" >
+                    <Grid>
+                        <!--Transactions-->
+                        <Grid x:Name="gridTransactions" RowDefinitions="*,auto" Margin="10" d:Visibility="Collapsed">
+                            <ListView x:Name="lvTransactions" ItemsSource="{Binding Transactions}" >
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Date" Width="Auto" DisplayMemberBinding="{Binding Date, StringFormat='dd-MM-yyyy'}"/>
+                                        <GridViewColumn Header="Name" Width="250" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="Folio" Width="100" DisplayMemberBinding="{Binding Folio}" />
+                                        <GridViewColumn Header="Transaction" Width="75" DisplayMemberBinding="{Binding Transactiontype}"/>
+                                        <GridViewColumn Header="Units" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Units, StringFormat=F3}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="NAV" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Price, StringFormat=F4}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Amount" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Amount, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Holdings" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock TextAlignment="Right" >
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="{x:Type TextBlock}">
+                                                                <Setter Property="Text" Value="{Binding BalUnits, StringFormat=F3}"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding BalUnits}" Value="0">
+                                                                        <Setter Property="Text" Value="-"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Days" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock TextAlignment="Right" >
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="{x:Type TextBlock}">
+                                                                <Setter Property="Text" Value="{Binding DaysHolding, StringFormat=N0}"/>
+
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DaysHolding}" Value="0">
+                                                                        <Setter Property="Text" Value="-"/>
+                                                                    </DataTrigger>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding ELSSunlocked}" Value="True"/>
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <MultiDataTrigger.Setters>
+                                                                            <Setter Property="Background" Value="Honeydew"/>
+                                                                        </MultiDataTrigger.Setters>
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Old}" Value="True">
+                                                <Setter Property="Opacity" Value="0.7"/>
+                                            </DataTrigger>
+                                            <!--<DataTrigger Binding="{Binding ELSS}" Value="True">
+                                                <Setter Property="Background" Value="Linen"/>
+                                            </DataTrigger>-->
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+                        </Grid>
+
+                        <!--Mutual Funds-->
+                        <Grid x:Name="gridMutualfunds" RowDefinitions="auto,*,auto" Margin="10" d:Visibility="Collapsed">
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding LatestAmt, StringFormat='Latest Amt: {0:N0}', FallbackValue='Latest:'}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Fundscount, StringFormat='Funds: {0:F0}', FallbackValue='| Funds:'}" FontWeight="Bold" Margin="10,0,0,0"/>
+                            </StackPanel>
+
+                            <ListView x:Name="lvMutualfunds" ItemsSource="{Binding Mutualfunds}"  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True" SelectionMode="Single" Grid.Row="1" Margin="0,10,0,0" >
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" Width="250" DisplayMemberBinding="{Binding NavName}"/>
+                                        <GridViewColumn Header="Folio" Width="100" DisplayMemberBinding="{Binding Folio}" />
+                                        <GridViewColumn Header="Type" Width="125" DisplayMemberBinding="{Binding navMutualfund.Subcategory}"/>
+                                        <GridViewColumn Header="Category" Width="75" DisplayMemberBinding="{Binding Taxcategory}"/>
+                                        <GridViewColumn Header="Amount" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding BalAmt, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Units" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Units, StringFormat=F3}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Avg. NAV" Width="75">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Price, StringFormat=F4}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Current NAV" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding navMutualfund.NAV, StringFormat=F4}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Latest Amt" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding LatestAmtratio}" Opacity="1" Foreground="Khaki"/>
+                                                        <TextBlock Text="{Binding LatestAmount, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Profit" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Profitratio}" />
+                                                        <TextBlock Text="{Binding Profit, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="%" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Properratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Profitpercent, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Wa days" Width="75" ToolTipService.ToolTip="Wtd avg days">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Wadaysratio}" Foreground="CornflowerBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Wtdavgdaysholding, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="XIRR" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Xirrratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding XirrHolding, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ultratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="LT Amt" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding LtAmount, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="LT Units" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding LtUnits, StringFormat=N3}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ustratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST Amt" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding StAmount, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST Units" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding StUnits, StringFormat=N3}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <EventSetter Event="MouseDoubleClick" Handler="lviMutualfunds_MouseDoubleClick" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding navMutualfund.Subcategory}" Value="ELSS">
+                                                <Setter Property="Background" Value="MintCream"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+
+                                <ListView.GroupStyle>
+                                    <StaticResource ResourceKey="group01"/>
+                                </ListView.GroupStyle>
+                            </ListView>
+
+                            <TextBlock Text="✶ Tax categories and capital gains are only informative. Refer official sources for accurate and final categories and figures." Margin="0,10,0,0" Grid.Row="2"/>
+                        </Grid>
+
+                        <!--Categories-->
+                        <Grid x:Name="gridCategories" RowDefinitions="auto,130,*,auto" Margin="10" d:Visibility="Collapsed">
+                            <TextBlock Text="{Binding LatestAmt, StringFormat='Latest Amt: {0:N0}', FallbackValue='Latest:'}" FontWeight="Bold"/>
+
+                            <!--Categories-->
+                            <ListView x:Name="lvCategories" ItemsSource="{Binding Categories}" SelectionMode="Single" Grid.Row="1" Margin="0,10,0,0">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Category Name" Width="100" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="Funds" Width="50" DisplayMemberBinding="{Binding Funds}"/>
+
+                                        <GridViewColumn Header="Amount" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Amount, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Latest Amt" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding LatestAmtratio}" Foreground="Khaki" Opacity="1" />
+                                                        <TextBlock Text="{Binding LatestAmount, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Profit" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Profitratio}" />
+                                                        <TextBlock Text="{Binding Profit, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="%" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Properratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Profitpercent, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Wa days" Width="75" ToolTipService.ToolTip="Wtd avg days">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Wadaysratio}" Foreground="CornflowerBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Wtdavgdaysholding, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="XIRR" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Xirrratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding XirrHolding, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ultratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ustratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Share" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Properratio}" Foreground="LightBlue" Opacity="0.5" />-->
+                                                        <TextBlock Text="{Binding LatestamtShare, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+
+                            <!--Subcategories-->
+                            <ListView x:Name="lvSubcategories" ItemsSource="{Binding Subcategories}" Grid.Row="2" Margin="0,10,0,0" SelectionMode="Single">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" Width="150" DisplayMemberBinding="{Binding Name}"/>
+                                        <GridViewColumn Header="Category" Width="75" DisplayMemberBinding="{Binding Taxcategory}"/>
+                                        <GridViewColumn Header="Funds" Width="50" DisplayMemberBinding="{Binding Funds}"/>
+
+                                        <GridViewColumn Header="Amount" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Amount, StringFormat=N0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Latest Amt" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding LatestAmtratio}" Foreground="Khaki" Opacity="1" />
+                                                        <TextBlock Text="{Binding LatestAmount, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Profit" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Profitratio}" />
+                                                        <TextBlock Text="{Binding Profit, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="%" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Properratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Profitpercent, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Wa days" Width="75" ToolTipService.ToolTip="Wtd avg days">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Wadaysratio}" Foreground="CornflowerBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding Wtdavgdaysholding, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="XIRR" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Xirrratio}" Foreground="LightBlue" Opacity="0.5" />
+                                                        <TextBlock Text="{Binding XirrHolding, StringFormat=P0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ultratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <ProgressBar Value="{Binding Ustratio}" />
+                                                        <TextBlock Text="{Binding UnrealisedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="Share" Width="50" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding LatestamtShare, StringFormat=P0}" TextAlignment="Right" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+
+                                <ListView.GroupStyle>
+                                    <StaticResource ResourceKey="group01"/>
+                                    <!--<GroupStyle >
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <Border BorderThickness="0,0,0,1" BorderBrush="DarkSlateGray" >
+                                                    <TextBlock FontWeight="Bold" Text="{Binding Name}" Padding="12,3"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>-->
+                                </ListView.GroupStyle>
+                            </ListView>
+
+                            <TextBlock Text="✶ Tax categories and capital gains are only informative. Refer official sources for accurate and final categories and figures." Margin="0,10,0,0" Grid.Row="3"/>
+                        </Grid>
+
+                        <!--Capital gains-->
+                        <Grid x:Name="gridCapitalgains" RowDefinitions="*,auto" Margin="10" d:Visibility="Collapsed">
+                            <ListView x:Name="lvCapitalgains" ItemsSource="{Binding Capitalgains}" >
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Name" Width="100" DisplayMemberBinding="{Binding Taxcategory}"/>
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ultratio}" />-->
+                                                        <TextBlock Text="{Binding BookedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ustratio}" />-->
+                                                        <TextBlock Text="{Binding BookedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ultratio}" />-->
+                                                        <TextBlock Text="{Binding BookedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ustratio}" />-->
+                                                        <TextBlock Text="{Binding BookedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ultratio}" />-->
+                                                        <TextBlock Text="{Binding BookedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ustratio}" />-->
+                                                        <TextBlock Text="{Binding BookedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ultratio}" />-->
+                                                        <TextBlock Text="{Binding BookedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ustratio}" />-->
+                                                        <TextBlock Text="{Binding BookedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+
+
+                                        <GridViewColumn Header="LT" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ultratio}" />-->
+                                                        <TextBlock Text="{Binding BookedLt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>                                        
+                                        <GridViewColumn Header="ST" Width="75" >
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                        <!--<ProgressBar Value="{Binding Ustratio}" />-->
+                                                        <TextBlock Text="{Binding BookedSt, StringFormat=N0}" TextAlignment="Right" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>                                     
+                                    </GridView>
+                                </ListView.View>
+
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <EventSetter Event="MouseDoubleClick" Handler="lviCapitalgains_MouseDoubleClick" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+
+                                <ListView.GroupStyle>
+                                    <StaticResource ResourceKey="group01"/>
+                                </ListView.GroupStyle>
+                            </ListView>
+                        </Grid>
+
+                        <!--Chart-->
+                        <Grid x:Name="gridChart" RowDefinitions="*,auto" Margin="10" d:Visibility="Collapsed">
+
+                        </Grid>
+
+                        <!--Folios-->
+                        <Grid x:Name="gridFolios" RowDefinitions="*,auto" Margin="10" d:Visibility="Visible">
+
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Background="#DDDDDD" Grid.Row="2" CornerRadius="10" Margin="0,10,0,0" >
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
+                    <Button x:Name="butDownloadlinks" Content="Download links" Padding="15,5" Click="butDownloadlinks_Click" Margin="0,0,10,0"/>
+
+                    <Button x:Name="butRefresh" Content="Refresh" Padding="15,5" Click="butRefresh_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="butClear" Content="Clear" Padding="15,5" Click="butClear_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="butCopy" Content="Copy" Padding="15,5" Click="butCopy_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="butSave" Content="Save" Padding="15,5" Click="butSave_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

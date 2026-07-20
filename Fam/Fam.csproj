@@ -1,0 +1,67 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWPF>true</UseWPF>
+		<Description>Transaction overview tool</Description>
+		<Authors>ManageSoft</Authors>
+		<ApplicationIcon>res\ClockSheet.ico</ApplicationIcon>
+		<PackageIcon>ClockSheet.png</PackageIcon>
+
+		<PublishSingleFile>true</PublishSingleFile>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<SelfContained>true</SelfContained>
+		<AssemblyVersion>0.0.5.0</AssemblyVersion>
+		<FileVersion>0.0.5.0</FileVersion>
+		<Version>0.0.5.0</Version>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <Compile Remove="temp\MainWindow.xaml.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="res\ClockSheet.ico" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="temp\MainWindow.xaml.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="ExcelDataReader" Version="3.9.0" />
+	  <PackageReference Include="ExcelDataReader.DataSet" Version="3.9.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Resource Include="res\SCHMSTRDMAT.txt">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Resource>
+	  <Resource Include="res\SCHMSTRPHY.txt">
+	    <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+	  </Resource>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Properties\Settings.Designer.cs">
+	    <DesignTimeSharedInput>True</DesignTimeSharedInput>
+	    <AutoGen>True</AutoGen>
+	    <DependentUpon>Settings.settings</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Properties\Settings.settings">
+		  <Generator>SettingsSingleFileGenerator</Generator>
+		  <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+		</None>
+		<None Update="res\ClockSheet.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+</Project>

@@ -1,26 +1,29 @@
-﻿<Window x:Class="Fam.LinksWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Fam"
-        mc:Ignorable="d"
-        Title="Links" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" SizeToContent="WidthAndHeight" Background="WhiteSmoke" ShowInTaskbar="False">
-    <Grid RowDefinitions="auto,*" Margin="25,20">
+﻿<Window x:Class="Fam.LinksWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:local="clr-namespace:Fam" mc:Ignorable="d" Title="Links" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" SizeToContent="WidthAndHeight" Background="WhiteSmoke" ShowInTaskbar="False">
+    <StackPanel Margin="25">
 
-        <TextBlock Text="Download links" FontSize="18px" FontWeight="Bold"/>
+        <TextBlock Text="Download links" FontSize="18px" FontWeight="Bold" />
+
+        <Button x:Name="butAutofill" Content="Autofill" Margin="0,20,0,0" Padding="10,5" HorizontalAlignment="Left" Click="butAutofill_Click" />
 
         <StackPanel Grid.Row="1" Margin="0,20,0,10">
+
             <StackPanel Cursor="Hand" MouseDown="txtCamslink_MouseDown" Background="Transparent">
                 <TextBlock Text="CAMS transaction statement" FontSize="14px" />
-                <TextBlock x:Name="txtCamslink" Text="https://www.camsonline.com/Investors/Statements/Transaction-Details-Statement" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="MediumBlue" TextDecorations="Underline"  />
+                <TextBlock x:Name="txtCamslink" Text="https://www.camsonline.com/Investors/Statements/Transaction-Details-Statement" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="MediumBlue" TextDecorations="Underline" />
             </StackPanel>
 
-            <StackPanel Cursor="Hand" MouseDown="txtKfintechlink_MouseDown" Background="Transparent" Margin="0,20,0,0">
-                <TextBlock Text="KFintech transaction statement"  FontSize="14px"/>
-                <TextBlock x:Name="txtKfintechlink" Text="https://mfs.kfintech.com/investor/General/InvestorTransactionReport" Margin="0,3,0,0"  TextWrapping="Wrap" Foreground="MediumBlue" TextDecorations="Underline"   />
+            <StackPanel Cursor="Hand" MouseDown="txtKfintechlink_MouseDown" Background="Transparent" Margin="0,20,0,0" Grid.Row="1">
+                <TextBlock Text="KFintech transaction statement" FontSize="14px" />
+                <TextBlock x:Name="txtKfintechlink" Text="https://mfs.kfintech.com/investor/General/InvestorTransactionReport" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="MediumBlue" TextDecorations="Underline" />
+            </StackPanel>
+
+            <Border Background="Silver" Height="1" Margin="0,20,0,0" />
+
+            <StackPanel Cursor="Hand" MouseDown="txtFamGithublink_MouseDown" Background="Transparent" Margin="0,20,0,0">
+                <TextBlock Text="Fam GitHub page" FontSize="14px" />
+                <TextBlock x:Name="txtFamGithublink" Text="https://github.com/ManageSoft-79/Fam/releases" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="MediumBlue" TextDecorations="Underline" />
             </StackPanel>
         </StackPanel>
 
-    </Grid>
+    </StackPanel>
 </Window>

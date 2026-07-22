@@ -14,7 +14,7 @@ namespace Fam
         }
 
         public string Name { get; }
-        public string Fund { get; private set; }
+        public string FundName { get; }
         public string Type { get; private set; }
         public string SchemeCode { get; private set; }
         private string ISIN1 { get; set; }
@@ -74,7 +74,7 @@ namespace Fam
         public NAVmutualfund(string name, string fund, string type, string schemeCode, string iSIN1, string iSIN2, decimal nAV, DateTime navDate)
         {
             Name = name;
-            Fund = fund;
+            FundName = fund;
             Type = type;
             SchemeCode = schemeCode;
             ISIN1 = iSIN1;
@@ -103,7 +103,7 @@ namespace Fam
             if (!cleanNamelower.Contains("plan"))
                 CleanName += " Plan";
 
-            // Name only
+            // only name
             OnlyName = Name;
             var OnlynameLower = OnlyName.ToLower();
 

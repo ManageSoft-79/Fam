@@ -19,6 +19,17 @@ namespace Fam
             FrameworkElement.LanguageProperty.OverrideMetadata(
                 typeof(FrameworkElement),
                 new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(CultureInfo.CurrentCulture.IetfLanguageTag)));
+
+            //// Installing playwright's binaries
+            //// Alternatives: "chromium", "firefox", "webkit"
+            //int exitCode = Microsoft.Playwright.Program.Main(["install", "chromium"]);
+
+            //if (exitCode != 0)
+            //{
+            //    throw new Exception($"Playwright browser installation failed with exit code {exitCode}");
+            //}
+
+            //MessageBox.Show("Browser ready.");
         }
     }
 

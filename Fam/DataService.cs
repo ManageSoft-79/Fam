@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using ExcelDataReader;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Net.NetworkInformation;
@@ -6,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Transactions;
 using System.Windows;
+using System.Xml;
 
 namespace Fam
 {
@@ -23,7 +25,7 @@ namespace Fam
         public static void SaveData(string filepath, object data)
         {
             var settings = new DataContractSerializerSettings { PreserveObjectReferences = true };
-            var serialiser = new DataContractSerializer(typeof(Portfolio), settings);
+            var serialiser = new DataContractSerializer(data.GetType(), settings);
 
             using (FileStream fs = new FileStream(filepath, FileMode.Create, FileAccess.Write))
                 serialiser.WriteObject(fs, data);
@@ -32,10 +34,30 @@ namespace Fam
         public static object ReadData(string filepath)
         {
             var settings = new DataContractSerializerSettings { PreserveObjectReferences = true };
-            var serialiser = new DataContractSerializer(typeof(Portfolio), settings);
+            var serialiser = new DataContractSerializer(typeof(object), settings);
 
             using (FileStream fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 return serialiser.ReadObject(fs);
+        }
+
+        public static bool CheckSaved(string filepath, object data)
+        {
+            if (!File.Exists(filepath))
+                return false;
+
+            var settings = new DataContractSerializerSettings { PreserveObjectReferences = true };
+            var serialiser = new DataContractSerializer(data.GetType(), settings);
+
+            using (var stringWriter = new StringWriter())
+            {
+                using (var xmlWriter = XmlWriter.Create(stringWriter))
+                    serialiser.WriteObject(xmlWriter, data);
+
+                var xmldata = stringWriter.ToString();
+                var saveddata = File.ReadAllText(filepath);
+
+                return xmldata == saveddata;
+            }
         }
 
         public static bool ConnectionIsAvailable(string url = "www.google.co.in")
@@ -131,7 +153,7 @@ namespace Fam
 
                 if (NAVmutualfunds.Count > 0)
                 {
-                    NAVmutualfunds = NAVmutualfunds.OrderBy(x => x.Fund).ThenBy(x => x.Name).ToList();
+                    NAVmutualfunds = NAVmutualfunds.OrderBy(x => x.FundName).ThenBy(x => x.Name).ToList();
 
                     // Assignment of common/base PortfolioMutualfund for each fund to refer tax-category
                     var uniquefunds = NAVmutualfunds.DistinctBy(x => x.OnlyName, StringComparer.OrdinalIgnoreCase);
@@ -298,89 +320,182 @@ namespace Fam
             }
         }
 
-        public static List<Transaction> Loadtransactionsfromfiles(string[] filePaths)
+        public static List<Transaction> LoadtransactionsFromfiles(string[] filePaths)
         {
             List<Transaction> transactions = new List<Transaction>();
 
             foreach (string filepath in filePaths)
                 if (File.Exists(filepath))
-                    using (StreamReader Sr = new StreamReader(filepath, new FileStreamOptions() { Share = FileShare.ReadWrite }))
+                {
+                    int date_i = -1, folio_i = -1, name_i = -1, transaction_i = -1, units_i = -1, price_i = -1, amount_i = -1, isin_i = -1, fundname_i = -1, cpcode_i = -1;
+
+                    // possible columns
+                    // Date, Folio Number, Name of the Fund, Order, Units, NAV, Current Nav, Amount (INR)
+                    // Cams: MF_NAME,INVESTOR_NAME,PAN,FOLIO_NUMBER,PRODUCT_CODE,SCHEME_NAME,Type,TRADE_DATE,TRANSACTION_TYPE,DIVIDEND_RATE,AMOUNT,UNITS,PRICE,BROKER
+                    // Kfintech: FundName,Investor Name,Account Number,Product Code,Scheme Description,Transaction Date,Transaction Description,Amount,Units,NAV,Broker Code,Broker Name,SchemeISIN
+
+                    string[] dateheaders = new string[] { "date", "trade_date", "transaction date" };
+                    string[] folioheaders = new string[] { "folio number", "folio_number", "account number" };
+                    string[] nameheaders = new string[] { "name of the fund", "scheme_name", "scheme description" };
+
+                    if (Path.GetExtension(filepath) == ".csv")
                     {
-                        int date_i = -1, folio_i = -1, name_i = -1, transaction_i = -1, units_i = -1, nav_i = -1, amount_i = -1, isin_i = -1, fundname_i = -1, cpcode_i = -1;
-
-                        if (!Sr.EndOfStream)
+                        using (StreamReader Sr = new StreamReader(filepath, new FileStreamOptions() { Share = FileShare.ReadWrite }))
                         {
-                            string headerline = Sr.ReadLine();
-                            var headers = headerline.Split(",");
-
-                            // possible columns
-                            // Date, Folio Number, Name of the Fund, Order, Units, NAV, Current Nav, Amount (INR)
-                            // MF_NAME,INVESTOR_NAME,PAN,FOLIO_NUMBER,PRODUCT_CODE,SCHEME_NAME,Type,TRADE_DATE,TRANSACTION_TYPE,DIVIDEND_RATE,AMOUNT,UNITS,PRICE,BROKER
-                            // FundName,Investor Name,Account Number,Product Code,Scheme Description,Transaction Date,Transaction Description,Amount,Units,NAV,Broker Code,Broker Name,SchemeISIN
-                            for (int i = 0; i <= headers.Length - 1; i++)
+                            // read and assign header indices
+                            if (!Sr.EndOfStream)
                             {
-                                string header_lower = headers[i].Trim().ToLower();
+                                string headerline = Sr.ReadLine();
+                                var headers = headerline.Split(",");
 
-                                if (header_lower == "date" || header_lower == "trade_date" || header_lower == "transaction date")
-                                    date_i = i;
-                                else if (header_lower == "folio number" || header_lower == "folio_number" || header_lower == "account number")
-                                    folio_i = i;
-                                else if (header_lower == "name of the fund" || header_lower == "scheme_name" || header_lower == "scheme description")
-                                    name_i = i;
-                                else if (header_lower == "order" || header_lower == "transaction_type" || header_lower == "transaction description")
-                                    transaction_i = i;
-                                else if (header_lower == "units")
-                                    units_i = i;
-                                else if (header_lower == "nav" || header_lower == "price")
-                                    nav_i = i;
-                                else if (header_lower == "amount (inr)" || header_lower == "amount")
-                                    amount_i = i;
-                                // optional
-                                else if (header_lower == "schemeisin")
-                                    isin_i = i;
-                                else if (header_lower == "mf_name" || header_lower == "fundname")
-                                    fundname_i = i;
-                                else if (header_lower == "product_code" || header_lower == "product code")
-                                    cpcode_i = i;
+
+                                for (int i = 0; i <= headers.Length - 1; i++)
+                                {
+                                    string header_lower = headers[i].Trim().ToLower();
+
+                                    if (dateheaders.Contains(header_lower))
+                                        date_i = i;
+                                    else if (folioheaders.Contains(header_lower))
+                                        folio_i = i;
+                                    else if (nameheaders.Contains(header_lower))
+                                        name_i = i;
+                                    else if (header_lower == "order" || header_lower == "transaction_type" || header_lower == "transaction description")
+                                        transaction_i = i;
+                                    else if (header_lower == "units")
+                                        units_i = i;
+                                    else if (header_lower == "nav" || header_lower == "price")
+                                        price_i = i;
+                                    else if (header_lower == "amount (inr)" || header_lower == "amount")
+                                        amount_i = i;
+                                    // optional
+                                    else if (header_lower == "schemeisin")
+                                        isin_i = i;
+                                    else if (header_lower == "mf_name" || header_lower == "fundname")
+                                        fundname_i = i;
+                                    else if (header_lower == "product_code" || header_lower == "product code")
+                                        cpcode_i = i;
+                                }
                             }
-                        }
 
-                        // check if headers are okay
-                        if (date_i == -1 || folio_i == -1 || name_i == -1 || transaction_i == -1 || units_i == -1 || nav_i == -1)
-                        {
-                            MessageBox.Show("Headers mismatch. File skipped.\n" + Path.GetFileName(filepath));
-                            continue;
-                        }
-
-                        while (!Sr.EndOfStream)
-                        {
-                            string[] rowItems = Sr.ReadLine().Split(",");
-
-                            var units = !string.IsNullOrEmpty(rowItems[units_i].Trim()) ? Math.Abs(decimal.Parse(rowItems[units_i].Trim())) : 0;
-                            var ISIN = isin_i >= 0 ? rowItems[isin_i] : "";
-                            var fundname = fundname_i >= 0 ? rowItems[fundname_i] : "";
-                            var cpcode = cpcode_i >= 0 ? rowItems[cpcode_i].Trim() : "";
-
-                            // financial transactions only
-                            if (units != 0)
+                            // check if headers are okay
+                            if (date_i == -1 || folio_i == -1 || name_i == -1 || transaction_i == -1 || units_i == -1 || price_i == -1)
                             {
-                                var amount = decimal.Parse(rowItems[amount_i].Trim()); // to check rejections
+                                MessageBox.Show("Headers mismatch. File skipped.\n" + Path.GetFileName(filepath));
+                                continue;
+                            }
 
-                                transactions.Add(new Transaction(
-                                    date: DateTime.ParseExact(rowItems[date_i].Trim(), ["dd-MMM-yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture),
-                                   name: rowItems[name_i].Trim(),
-                                   folio: rowItems[folio_i].Trim(),
-                                   transactionName: rowItems[transaction_i].Trim(),
-                                   units: units,
-                                   price: decimal.Parse(rowItems[nav_i].Trim()),
-                                   amount: amount,
-                                   iSIN: ISIN,
-                                   fundName: fundname,
-                                   cpCode: cpcode
-                                   ));
+                            // read csv file into transactions
+                            while (!Sr.EndOfStream)
+                            {
+                                string[] rowItems = Sr.ReadLine().Split(",");
+
+                                var units = !string.IsNullOrEmpty(rowItems[units_i].Trim()) ? Math.Abs(decimal.Parse(rowItems[units_i].Trim())) : 0;
+
+                                // financial transactions only
+                                if (units != 0)
+                                {
+                                    var ISIN = isin_i >= 0 ? rowItems[isin_i] : "";
+                                    var fundname = fundname_i >= 0 ? rowItems[fundname_i] : "";
+                                    var cpcode = cpcode_i >= 0 ? rowItems[cpcode_i].Trim() : "";
+                                    var amount = decimal.Parse(rowItems[amount_i].Trim()); // to check rejections
+
+                                    transactions.Add(new Transaction(
+                                        date: DateTime.ParseExact(rowItems[date_i].Trim(), ["dd-MMM-yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture),
+                                       name: rowItems[name_i].Trim(),
+                                       folio: rowItems[folio_i].Trim(),
+                                       transactionName: rowItems[transaction_i].Trim(),
+                                       units: units,
+                                       price: decimal.Parse(rowItems[price_i].Trim()),
+                                       amount: amount,
+                                       iSIN: ISIN,
+                                       fundName: fundname,
+                                       cpCode: cpcode
+                                       ));
+                                }
                             }
                         }
                     }
+                    else if (Path.GetExtension(filepath) is ".xls" or ".xlsx")
+                    {
+                        using (var stream = File.Open(filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var reader = ExcelReaderFactory.CreateReader(stream))
+                        {
+                            // read and assign header indices
+                            if (reader.Read())
+                            {
+                                string[] headers = new string[reader.FieldCount];
+
+                                for (int i = 0; i <= headers.Length - 1; i++)
+                                {
+                                    headers[i] = reader.GetValue(i).ToString();
+
+                                    string header_lower = headers[i].ToLower();
+
+                                    if (dateheaders.Contains(header_lower))
+                                        date_i = i;
+                                    else if (folioheaders.Contains(header_lower))
+                                        folio_i = i;
+                                    else if (nameheaders.Contains(header_lower))
+                                        name_i = i;
+                                    else if (header_lower == "order" || header_lower == "transaction_type" || header_lower == "transaction description")
+                                        transaction_i = i;
+                                    else if (header_lower == "units")
+                                        units_i = i;
+                                    else if (header_lower == "nav" || header_lower == "price")
+                                        price_i = i;
+                                    else if (header_lower == "amount (inr)" || header_lower == "amount")
+                                        amount_i = i;
+                                    // optional
+                                    else if (header_lower == "schemeisin")
+                                        isin_i = i;
+                                    else if (header_lower == "mf_name" || header_lower == "fundname")
+                                        fundname_i = i;
+                                    else if (header_lower == "product_code" || header_lower == "product code")
+                                        cpcode_i = i;
+                                }
+
+                                if (date_i == -1 || name_i == -1 || folio_i == -1 || transaction_i == -1 || units_i == -1 || price_i == -1 || amount_i == -1)
+                                {
+                                    MessageBox.Show(Path.GetFileName(filepath) + " headers mismatch. skipped.");
+                                    continue;
+                                }
+                            }
+
+                            // read excel file into transactions
+                            while (reader.Read())
+                            {
+                                var units = reader.GetValue(units_i) != null && !string.IsNullOrEmpty(reader.GetValue(units_i).ToString())
+                                    ? Math.Abs(decimal.Parse(reader.GetValue(units_i).ToString())) : 0;
+
+                                // financial transactions only
+                                if (units != 0)
+                                {
+                                    var ISIN = isin_i >= 0 ? reader.GetValue(isin_i).ToString() : "";
+                                    var fundname = fundname_i >= 0 ? reader.GetValue(fundname_i).ToString() : "";
+                                    var cpcode = cpcode_i >= 0 ? reader.GetValue(cpcode_i).ToString().Trim() : "";
+                                    var amount = decimal.Parse(reader.GetValue(amount_i).ToString().Trim()); // to check rejections
+
+                                    transactions.Add(new Transaction(
+                                       date: DateTime.ParseExact(reader.GetValue(date_i).ToString().Trim(), ["dd-MMM-yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture),
+                                       name: reader.GetValue(name_i).ToString().Trim(),
+                                       folio: reader.GetValue(folio_i).ToString().Trim(),
+                                       transactionName: reader.GetValue(transaction_i).ToString().Trim(),
+                                       units: units,
+                                       price: decimal.Parse(reader.GetValue(price_i).ToString().Trim()),
+                                       amount: amount,
+                                       iSIN: ISIN,
+                                       fundName: fundname,
+                                       cpCode: cpcode
+                                       ));
+                                }
+                            }
+                        }
+                    }
+                    else if (Path.GetExtension(filepath) == ".pdf")
+                    {
+
+                    }
+                }
 
             // remove rejected
             if (transactions.Any(x => x.TransactionName.ToLower().Contains("rejection")))
@@ -393,8 +508,10 @@ namespace Fam
                         continue;
 
                     Transaction prevItem = transactions[transactions.IndexOf(item) - 1];
+                    if (!(prevItem.Name == item.Name && prevItem.Amount == item.Amount && prevItem.Transactiontype == item.Transactiontype))
+                        prevItem = transactions[transactions.IndexOf(item) + 1];
 
-                    if (prevItem.Name == item.Name && item.TransactionName.Contains(prevItem.TransactionName))
+                    if (prevItem.Name == item.Name && prevItem.Amount == item.Amount && prevItem.Transactiontype == item.Transactiontype)
                     {
                         transactions.Remove(prevItem);
                         transactions.Remove(item);

@@ -7,17 +7,20 @@ namespace Fam
 {
     public class Capitalgain
     {
-        public int Year { get; private set; }
         public TaxCategory Taxcategory { get; private set; }
+        public int Year { get; private set; }
         public string FYname => "FY " + Year;
 
-        public Capitalgain(int year, TaxCategory taxcategory)
+        public Capitalgain(int year, TaxCategory name)
         {
             Year = year;
-            Taxcategory = taxcategory;
+            Taxcategory = name;
         }
 
         public DateTime FirstDate => new DateTime(Year - 1, 4, 1);
         public DateTime LastDate => new DateTime(Year, 3, 31);
+
+        public decimal BookedLt { get; set; }
+        public decimal BookedSt { get; set; }
     }
 }

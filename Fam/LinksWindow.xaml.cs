@@ -25,5 +25,16 @@ namespace Fam
             string url = txtCamslink.Text;
             Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
         }
+
+        private void txtFamGithublink_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            string url = txtFamGithublink.Text;
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+
+        private void butAutofill_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }

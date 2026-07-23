@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Transactions;
+using System.Windows.Media.Animation;
 
 namespace Fam
 {
@@ -32,7 +33,7 @@ namespace Fam
         [DataMember]
         public decimal Units { get; }
         [DataMember]
-        public decimal Price { get; }
+        public decimal NAV { get; }
         [DataMember]
         public string ISIN { get; }
         [DataMember]
@@ -51,9 +52,9 @@ namespace Fam
         [DataMember]
         public Mutualfund mutualfund = null;
 
-        public decimal Amount => Units * Price;
+        public decimal Amount => Units * NAV;
         public decimal BalUnits => Units - BalancedTransactions.Sum(x => x.Item2);
-        public decimal BalAmount => BalUnits * Price;
+        public decimal BalAmount => BalUnits * NAV;
 
         public Transaction(DateTime date, string name, string folio, string transactionName, decimal units, decimal price, decimal amount, string iSIN, string fundName, string cpCode)
         {
@@ -62,7 +63,7 @@ namespace Fam
             Folio = folio;
             TransactionName = transactionName;
             Units = units;
-            Price = price;
+            NAV = price;
             ISIN = iSIN;
             FundName = fundName;
             CpCode = cpCode;
@@ -106,33 +107,78 @@ namespace Fam
             BalancedTransactions = new();
         }
 
-        public decimal DaysHolding => _transactiontype == TransactionType.buy ? (decimal)(DateTime.Today - Date).TotalDays : 0;
-        public decimal Wtdavgdaysheld
+        public override string ToString() => Date.ToString("yyyy-MM-dd")
+          + "," + Folio
+          + "," + Name
+          + "," + Transactiontype
+          + "," + Units.ToString()
+          + "," + NAV.ToString();
+
+        public decimal Wtdavgdayslifetime // for lifetime xirr
         {
             get
             {
                 if (_transactiontype == TransactionType.buy)
                 {
-                    var sumproduct = BalancedTransactions.Sum(x => x.Item2 * Price * (decimal)(x.Item1.Date - Date).TotalDays) + BalAmount * DaysHolding;
-                    var sum = BalancedTransactions.Sum(x => x.Item2 * Price) + BalAmount;
+                    var sumproduct = BalancedTransactions.Sum(x => x.Item2 * NAV * (decimal)(x.Item1.Date - Date).TotalDays) + (BalAmount * Wtdavgdaysheld);
+                    var sum = BalancedTransactions.Sum(x => x.Item2 * NAV) + BalAmount;
                     return sum > 0 ? sumproduct / sum : 0;
                 }
-                else return 0;
+                return 0;
             }
         }
 
-        public override string ToString() => Date.ToString("yyyy-MM-dd")
-            + "," + Folio
-            + "," + Name
-            + "," + Transactiontype
-            + "," + Units.ToString()
-            + "," + Price.ToString();
+        public decimal Wtdavgdaysheld
+        {
+            get
+            {
+                if (_transactiontype == TransactionType.buy && BalUnits > 0)
+                {
+                    return (decimal)(DateTime.Today - Date).TotalDays;
+                }
+                else if (_transactiontype == TransactionType.sell)
+                {
+                    var sumproduct = BalancedTransactions.Sum(x => x.Item2 * x.Item1.NAV * (decimal)(Date - x.Item1.Date).TotalDays);
+                    var sum = BalancedTransactions.Sum(x => x.Item2 * x.Item1.NAV);
+                    return sum > 0 ? sumproduct / sum : 0;
+                }
+                return 0;
+            }
+        }
+
+        public decimal Profit
+        {
+            get
+            {
+                if (_transactiontype == TransactionType.buy && BalUnits > 0 && mutualfund != null && mutualfund.navMutualfund != null)
+                    return (mutualfund.navMutualfund.NAV - NAV) * BalUnits;
+                else if (_transactiontype == TransactionType.sell)
+                    return Amount - BalancedTransactions.Sum(x => x.Item2 * x.Item1.NAV);
+                return 0;
+            }
+        }
+
+        public double Xirr
+        {
+            get
+            {
+                if (_transactiontype == TransactionType.buy && BalUnits > 0 && Wtdavgdaysheld >= 90)
+                    return BalAmount > 0 ? Math.Pow((double)((BalAmount + Profit) / BalAmount), 365 / (double)Wtdavgdaysheld) - 1 : 0;
+                else if (_transactiontype == TransactionType.sell && Wtdavgdaysheld >= 90)
+                {
+                    decimal Costofsold = BalancedTransactions.Sum(x => x.Item2 * x.Item1.NAV);
+                    return Costofsold > 0 ? Math.Pow((double)(Amount / Costofsold), 365 / (double)Wtdavgdaysheld) - 1 : 0;
+                }
+                return 0;
+            }
+        }
 
         private DateTime PrevFyFirstdate => new DateTime(DateTime.Today.Month < 3 ? DateTime.Today.Year - 2 : DateTime.Today.Year - 1, 4, 1);
-
         public bool Old => (_transactiontype == TransactionType.buy && BalUnits == 0) || (_transactiontype == TransactionType.sell && Date < PrevFyFirstdate);
 
         private bool ELSS => mutualfund != null && mutualfund.navMutualfund?.Subcategory == "ELSS";
         public bool ELSSunlocked => _transactiontype == TransactionType.buy && BalUnits > 0 && ELSS ? Date < DateTime.Today.AddYears(-3) : false;
+
+
     }
 }

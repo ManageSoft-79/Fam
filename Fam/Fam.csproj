@@ -14,26 +14,18 @@
 		<PublishSingleFile>true</PublishSingleFile>
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<SelfContained>true</SelfContained>
-		<AssemblyVersion>0.0.5.0</AssemblyVersion>
-		<FileVersion>0.0.5.0</FileVersion>
-		<Version>0.0.5.0</Version>
+	
+		<Version>1.0.2.0</Version>
 	</PropertyGroup>
-
-	<ItemGroup>
-	  <Compile Remove="temp\MainWindow.xaml.cs" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<Content Include="res\ClockSheet.ico" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Include="temp\MainWindow.xaml.cs" />
-	</ItemGroup>
-
-	<ItemGroup>
 	  <PackageReference Include="ExcelDataReader" Version="3.9.0" />
 	  <PackageReference Include="ExcelDataReader.DataSet" Version="3.9.0" />
+	  <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.5" />
 	</ItemGroup>
 
 	<ItemGroup>

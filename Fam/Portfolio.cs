@@ -1,13 +1,12 @@
-﻿using Microsoft.VisualBasic;
+﻿using LiveChartsCore;
+using LiveChartsCore.Measure;
+using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
+using SkiaSharp;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics.SymbolStore;
-using System.Globalization;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
-using System.Transactions;
-using System.Windows;
 using System.Windows.Data;
 
 namespace Fam
@@ -16,17 +15,23 @@ namespace Fam
     public class Portfolio : INotifyPropertyChanged
     {
         [DataMember]
-        private string? _name;
+        private string _name;
         [DataMember]
         private List<Transaction> _transactions = new();
         [DataMember]
         private List<Mutualfund> _mutualfunds = new();
-        [DataMember]
+
+        //[DataMember]
         private List<Category> _categories = new();
-        [DataMember]
+        //[DataMember]
         private List<Category> _subcategories = new();
-        [DataMember]
+        //[DataMember]
         private List<Capitalgain> _capitalgains = new();
+
+        [DataMember]
+        private List<Folio> _folios = new();
+        [DataMember]
+        private List<Foliogroup> _foliogroups = new();
 
         private decimal _wtdavgdaysholding;
         private decimal _wtdavgdayslifetime;
@@ -48,11 +53,14 @@ namespace Fam
         //    return true;
         //}
 
+
         public Mutualfund? TransactionFilter = null;
 
         public Capitalgain? TransactionFilter2 = null;
 
-        public string? Name
+        public Category MutualfundFilter = null;
+
+        public string Name
         {
             get => _name;
             set
@@ -65,12 +73,21 @@ namespace Fam
             }
         }
 
+        private IEnumerable<Mutualfund> _filtermutualfunds => _foliofilter != null ? _mutualfunds.Where(x => Filterfolios.Any(y => y.Name == x.Folio)) : _mutualfunds;
+        private IEnumerable<Mutualfund> _filtermutualfundswithholdings => _filtermutualfunds.Where(x => x.Units > 0);
+
+        public decimal Amt => _filtermutualfundswithholdings.Sum(x => x.BalAmt);
+        public decimal LatestAmt => _filtermutualfundswithholdings.Sum(x => x.LatestAmount);
+        public decimal Profit => LatestAmt - Amt;
+
         public ObservableCollection<Transaction> Transactions
         {
             get
             {
                 List<Transaction> list = _transactions.OrderByDescending(x => x.Date).ToList();
 
+                if (Foliofilter != null)
+                    list = list.FindAll(x => Filterfolios.Any(y => y.Name == x.Folio));
                 if (TransactionFilter != null)
                     list = list.FindAll(x => x.Name == TransactionFilter.Name && x.Folio == TransactionFilter.Folio);
                 if (TransactionFilter2 != null)
@@ -85,29 +102,44 @@ namespace Fam
             get
             {
                 OnPropertyChanged(nameof(LatestAmt));
+                OnPropertyChanged(nameof(Profit));
                 OnPropertyChanged(nameof(Fundscount));
 
-                var collection = new ObservableCollection<Mutualfund>(_mutualfunds.Where(x => x.Units > 0).OrderBy(x => x.Taxcategory));
+                var _filtermutualfunds2 = _filtermutualfundswithholdings;
+
+                if (MutualfundFilter != null)
+                {
+                    if (MutualfundFilter.Name != MutualfundFilter.Taxcategory.ToString())
+                        _filtermutualfunds2 = _filtermutualfunds2.Where(x => x.Subcategory == MutualfundFilter.Name);
+                    else _filtermutualfunds2 = _filtermutualfunds2.Where(x => x.Taxcategory == MutualfundFilter.Taxcategory);
+                }
+
+                //return new ObservableCollection<Mutualfund>(_filtermutualfunds2);
+                var collection = new ObservableCollection<Mutualfund>(_filtermutualfunds2.OrderBy(x => x.Taxcategory));
                 var view = (CollectionView)CollectionViewSource.GetDefaultView(collection);
                 view.GroupDescriptions.Clear();
                 view.GroupDescriptions.Add(new PropertyGroupDescription("Taxcategory"));
                 return collection;
             }
         }
-        public ObservableCollection<Mutualfund> Mutualfunds_inclzeroholding => new ObservableCollection<Mutualfund>(_mutualfunds);
+        //public ObservableCollection<Mutualfund> Mutualfunds_inclzeroholding => new ObservableCollection<Mutualfund>(_mutualfunds);
 
-        public ObservableCollection<Category> Categories => new ObservableCollection<Category>(_categories);
+        public ObservableCollection<Category> Categories => new ObservableCollection<Category>(_categories.Where(x => _filtermutualfundswithholdings.Any(y => y.Taxcategory == x.Taxcategory)));
         public ObservableCollection<Category> Subcategories
         {
             get
             {
-                var collection = new ObservableCollection<Category>(_subcategories.OrderBy(x => x.Taxcategory));
+                //return new ObservableCollection<Category>(_subcategories);
+                var collection = new ObservableCollection<Category>(_subcategories.Where(x => _filtermutualfundswithholdings.Any(y => y.Subcategory == x.Name)).OrderBy(x => x.Taxcategory));
                 var view = (CollectionView)CollectionViewSource.GetDefaultView(collection);
                 view.GroupDescriptions.Clear();
                 view.GroupDescriptions.Add(new PropertyGroupDescription("Taxcategory"));
                 return collection;
             }
         }
+
+        private IEnumerable<ISeries> _categoryseries;
+        public ObservableCollection<ISeries> Categoryseries => _categoryseries != null ? new(_categoryseries) : new();
 
         public ObservableCollection<Capitalgain> Capitalgains
         {
@@ -121,77 +153,94 @@ namespace Fam
             }
         }
 
-        public decimal Amtlifetime => _mutualfunds.Sum(x => x.AmountLifetime);
-        public decimal LatestAmtlifetime => _mutualfunds.Sum(x => x.FinalamountLifetime);
+        public ObservableCollection<Folio> Folios => new ObservableCollection<Folio>(_folios);
 
-        public decimal Wtdavgdayslifetime
+        private List<Folio> Filterfolios => _folios.FindAll(y => y.Group == _foliofilter);
+
+        public ObservableCollection<Foliogroup> Foliogroups => new ObservableCollection<Foliogroup>(_foliogroups);
+
+        public bool Aregroups => _foliogroups.Count > 1;
+
+        private Foliogroup? _foliofilter;
+        public Foliogroup? Foliofilter
         {
-            get { return _wtdavgdayslifetime; }
-            private set
+            get
             {
-                if (_wtdavgdayslifetime != value)
+                if (_foliofilter == null && _foliogroups.Count == 1)
+                    _foliofilter = _foliogroups[0];
+                return _foliofilter;
+            }
+            set
+            {
+                if (_foliofilter != value)
                 {
-                    _wtdavgdayslifetime = value;
+                    _foliofilter = value;
                     OnPropertyChanged();
-                    OnPropertyChanged(nameof(Xirrlifetime));
+                    OnPropertyChanged(nameof(Transactions));
+                    OnPropertyChanged(nameof(Mutualfunds));
+                    Recalculate();
                 }
             }
         }
-        public double Xirrlifetime => Amtlifetime > 0 && Wtdavgdayslifetime > 0 ? Math.Pow((double)(LatestAmtlifetime / Amtlifetime), (double)(365 / Wtdavgdayslifetime)) - 1 : 0;
 
-        public decimal Wtdavgdaysholding
-        {
-            get { return _wtdavgdaysholding; }
-            private set
-            {
-                if (_wtdavgdaysholding != value)
-                {
-                    _wtdavgdaysholding = value;
-                    OnPropertyChanged();
-                    OnPropertyChanged(nameof(XirrHolding));
-                }
-            }
-        }
-        public double XirrHolding => Amt > 0 && Wtdavgdaysholding > 0 ? Math.Pow((double)(LatestAmt / Amt), (double)(365 / Wtdavgdaysholding)) - 1 : 0;
-
-        public decimal Amt => _mutualfunds.Sum(x => x.BalAmt);
-        public decimal LatestAmt => _mutualfunds.Sum(x => x.LatestAmount);
-
-        public int Fundscount => _mutualfunds.Count(x => x.Units > 0);
 
         public Portfolio(string name, List<Transaction> transactions)
         {
-            Name = name;
+            _name = name;
             _transactions = transactions != null ? transactions : new();
 
             Task.Run(() => initialise());
         }
 
-        public void initialise()
+        public void LoadTransactions(List<Transaction> transactions)
+        {
+            if (transactions != null)
+            {
+                _transactions = transactions;
+                Task.Run(() => initialise());
+            }
+        }
+
+        private void initialise()
         {
             CreateMutualfunds();
+            MapMutualfunds(); //
+            CalculateMutualfunds(); //
+            Calculatepf(); // 
+            CreateCategories(); //
+            CreateCapitalgains(); //
+            CreateFolios();
+        }
+
+        public void Loadportfolio()
+        {
             MapMutualfunds();
-            Calculate();
+            CalculateMutualfunds();
+            Calculatepf();
             CreateCategories();
             CreateCapitalgains();
         }
 
-        public void CreateMutualfunds()
+        public void Recalculate()
         {
-            _mutualfunds = new();
+            Calculatepf();
+            CreateCategories();
+            CreateCapitalgains();
+        }
 
-            // Unique mutual fund - folio (with ISIN & productcode) pair list
-            _mutualfunds = _transactions.DistinctBy(x => x.Name + x.Folio).Select(x => new Mutualfund(x.Name, x.Folio, x.ISIN, x.CpCode)).ToList();
+        private void CreateMutualfunds()
+        {
+            // Unique mutual fund - folio (with ISIN & productcode) list
+            _mutualfunds = _transactions.DistinctBy(x => x.Name + x.Folio).Select(x => new Mutualfund(x.Name, x.Folio, x.ISIN, x.CpCode, x.FundName)).ToList();
             _mutualfunds = _mutualfunds.OrderBy(x => x.Name).ThenBy(x => x.Folio).ToList();
 
             OnPropertyChanged(nameof(Mutualfunds));
         }
 
-
-        public void MapMutualfunds()
+        private void MapMutualfunds()
         {
-            // map to master using cpCode to get ISIN, for mfs that don't have ISIN but have productcode
-            if (DataService.MasterMfs.Count > 0)
+            // map with master using cpCode to get ISIN, if any mfs don't have ISIN but have cpCode
+            if (_mutualfunds.Any(x => x.ISIN == "" && x.CpCode != "") && DataService.MasterMfs.Count > 0)
             {
                 var fundswithoutISIN = _mutualfunds.Where(x => x.ISIN == "" && x.CpCode != "");
                 foreach (Mutualfund mutualfund in fundswithoutISIN)
@@ -204,7 +253,7 @@ namespace Fam
                             mutualfund.ISIN = matches[0].Value.ISIN;
                         else if (matches.Count() > 1)
                         {
-                            // try match with name using commonality
+                            // try match with name commonality
                             var nameWords = mutualfund.CleanName.ToLower().Trim().Split(" ");
 
                             decimal commonality = 0.5M;
@@ -227,48 +276,63 @@ namespace Fam
             {
                 foreach (Mutualfund mutualfund in _mutualfunds)
                 {
-                    // first, try with ISIN
-                    if (!string.IsNullOrEmpty(mutualfund.ISIN))
+                    // first try with Schemecode if present
+                    if (!string.IsNullOrEmpty(mutualfund.SchemeCode))
+                    {
+                        mutualfund.navMutualfund = DataService.NAVmutualfunds.FirstOrDefault(x => x.SchemeCode == mutualfund.SchemeCode);
+                    }
+
+                    // second, try with ISIN
+                    if (mutualfund.navMutualfund == null && !string.IsNullOrEmpty(mutualfund.ISIN))
                     {
                         mutualfund.navMutualfund = DataService.NAVmutualfunds.FirstOrDefault(x => x.ISINgrowth == mutualfund.ISIN || x.ISINdivPayout == mutualfund.ISIN || x.ISINdivReinvest == mutualfund.ISIN);
-                        if (mutualfund.navMutualfund != null)
-                            continue;
                     }
 
                     // else try with name
-                    var nameWords = mutualfund.CleanName.ToLower().Trim().Split(" ");
+                    if (mutualfund.navMutualfund == null)
+                    {
+                        var nameWords = mutualfund.CleanName.ToLower().Trim().Split(" ");
 
-                    // search
-                    List<NAVmutualfund> FilteredNAVmutualfunds = DataService.NAVmutualfunds.ToList();
-                    foreach (string nameword in nameWords)
-                    {
-                        if (FilteredNAVmutualfunds.Count(x => x.CleanName.ToLower().Contains(nameword)) > 0)
-                            FilteredNAVmutualfunds = FilteredNAVmutualfunds.Where(x => x.CleanName.ToLower().Contains(nameword)).ToList();
-                        if (FilteredNAVmutualfunds.Count is 1 or 0)
-                            break;
-                    }
-
-                    if (FilteredNAVmutualfunds.Count == 1)
-                    {
-                        var commonality = StringService.Commonality(mutualfund.CleanName, FilteredNAVmutualfunds[0].CleanName);
-                        if (commonality > 0.5M)
-                            mutualfund.navMutualfund = FilteredNAVmutualfunds[0];
-                    }
-                    else if (FilteredNAVmutualfunds.Count > 1)
-                    {
-                        // with commonality
-                        decimal commonality = 0.5M;
-                        NAVmutualfund tempNavfund = null;
-                        foreach (NAVmutualfund navmutualfund in FilteredNAVmutualfunds)
+                        // search by name words
+                        List<NAVmutualfund> FilteredNAVmutualfunds = DataService.NAVmutualfunds.ToList();
+                        foreach (string nameword in nameWords)
                         {
-                            var commonalitytemp = StringService.Commonality(mutualfund.CleanName, navmutualfund.CleanName);
-                            if (commonalitytemp > commonality)
-                            {
-                                commonality = commonalitytemp;
-                                tempNavfund = navmutualfund;
-                            }
+                            if (FilteredNAVmutualfunds.Count(x => x.CleanName.ToLower().Contains(nameword)) > 0)
+                                FilteredNAVmutualfunds = FilteredNAVmutualfunds.Where(x => x.CleanName.ToLower().Contains(nameword)).ToList();
+                            if (FilteredNAVmutualfunds.Count is 1 or 0)
+                                break;
                         }
-                        mutualfund.navMutualfund = tempNavfund;
+
+                        if (FilteredNAVmutualfunds.Count == 1)
+                        {
+                            var commonality = StringService.Commonality(mutualfund.CleanName, FilteredNAVmutualfunds[0].CleanName);
+                            if (commonality > 0.5M)
+                                mutualfund.navMutualfund = FilteredNAVmutualfunds[0];
+                        }
+                        else if (FilteredNAVmutualfunds.Count > 1)
+                        {
+                            // with commonality
+                            decimal commonality = 0.5M;
+                            NAVmutualfund tempNavfund = null;
+                            foreach (NAVmutualfund navmutualfund in FilteredNAVmutualfunds)
+                            {
+                                var commonalitytemp = StringService.Commonality(mutualfund.CleanName, navmutualfund.CleanName);
+                                if (commonalitytemp > commonality)
+                                {
+                                    commonality = commonalitytemp;
+                                    tempNavfund = navmutualfund;
+                                }
+                            }
+                            mutualfund.navMutualfund = tempNavfund;
+                        }
+                    }
+
+                    // set schemecode, and fundname if absent
+                    if (mutualfund.navMutualfund != null)
+                    {
+                        mutualfund.SchemeCode = mutualfund.navMutualfund.SchemeCode;
+                        mutualfund.FundName = mutualfund.navMutualfund.FundName;
+                        mutualfund.SetPurename();
                     }
                 }
             }
@@ -280,10 +344,10 @@ namespace Fam
                     mutualfund.navMutualfund.Taxcategory = DataService.GetTaxcategory(mutualfund.navMutualfund);
             }
 
-            OnPropertyChanged(nameof(Mutualfunds));            
+            OnPropertyChanged(nameof(Mutualfunds));
         }
 
-        public void Calculate()
+        private void CalculateMutualfunds()
         {
             // Calculation for each mutualfund by filtering transactions
             foreach (Transaction transaction in _transactions)
@@ -321,7 +385,7 @@ namespace Fam
                 mutualfund.BalAmt = buyTransactionswithholdings.Sum(x => x.BalAmount);
 
                 mutualfund.AmountLifetime = buyTransactions.Sum(x => x.Amount);
-                mutualfund.FinalamountLifetime = mutualfund.LatestAmount + sellTransactions.Sum(x => x.Amount);
+                mutualfund.FinalamountLifetime = sellTransactions.Sum(x => x.Amount) + mutualfund.LatestAmount;
 
                 // unrealised capital gains
                 if (mutualfund.Units > 0)
@@ -329,15 +393,18 @@ namespace Fam
                     DateTime Date_1yback = DateTime.Today.AddYears(-1);
                     DateTime Date_2yback = DateTime.Today.AddYears(-2);
 
+                    // buy
                     if (mutualfund.navMutualfund?.Taxcategory == TaxCategory.Equity || mutualfund.navMutualfund?.Taxcategory == TaxCategory.GoldSilverETFs)
                     {
-                        decimal costLT = buyTransactionswithholdings.Where(x => x.Date <= Date_1yback).Sum(x => x.BalUnits * x.Price);
+                        // >1y Lt
+                        decimal costLT = buyTransactionswithholdings.Where(x => x.Date <= Date_1yback).Sum(x => x.BalUnits * x.NAV);
                         decimal amountLT = buyTransactionswithholdings.Where(x => x.Date <= Date_1yback).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedLt = amountLT - costLT;
                         mutualfund.LtAmount = amountLT;
                         mutualfund.LtUnits = buyTransactionswithholdings.Where(x => x.Date <= Date_1yback).Sum(x => x.BalUnits);
 
-                        decimal costST = buyTransactionswithholdings.Where(x => x.Date > Date_1yback).Sum(x => x.BalUnits * x.Price);
+                        // <1y St
+                        decimal costST = buyTransactionswithholdings.Where(x => x.Date > Date_1yback).Sum(x => x.BalUnits * x.NAV);
                         decimal amountST = buyTransactionswithholdings.Where(x => x.Date > Date_1yback).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedSt = amountST - costST;
                         mutualfund.StAmount = amountST;
@@ -346,14 +413,14 @@ namespace Fam
                     else if (mutualfund.navMutualfund?.Taxcategory == TaxCategory.Debt)
                     {
                         // Before 1 april 2023 - Lt
-                        decimal costLt = buyTransactionswithholdings.Where(x => x.Date < new DateTime(2023, 4, 1)).Sum(x => x.BalUnits * x.Price);
+                        decimal costLt = buyTransactionswithholdings.Where(x => x.Date < new DateTime(2023, 4, 1)).Sum(x => x.BalUnits * x.NAV);
                         decimal amountLt = buyTransactionswithholdings.Where(x => x.Date < new DateTime(2023, 4, 1)).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedLt = amountLt - costLt;
                         mutualfund.LtAmount = amountLt;
                         mutualfund.LtUnits = buyTransactionswithholdings.Where(x => x.Date < new DateTime(2023, 4, 1)).Sum(x => x.BalUnits);
 
                         // on or after 1 april 2023 - St
-                        decimal costSt = buyTransactionswithholdings.Where(x => x.Date >= new DateTime(2023, 4, 1)).Sum(x => x.BalUnits * x.Price);
+                        decimal costSt = buyTransactionswithholdings.Where(x => x.Date >= new DateTime(2023, 4, 1)).Sum(x => x.BalUnits * x.NAV);
                         decimal amountSt = buyTransactionswithholdings.Where(x => x.Date >= new DateTime(2023, 4, 1)).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedSt = amountSt - costSt;
                         mutualfund.StAmount = amountSt;
@@ -361,13 +428,15 @@ namespace Fam
                     }
                     else if (mutualfund.navMutualfund?.Taxcategory == TaxCategory.Others)
                     {
-                        decimal costLT = buyTransactionswithholdings.Where(x => x.Date <= Date_2yback).Sum(x => x.BalUnits * x.Price);
+                        // >2y Lt
+                        decimal costLT = buyTransactionswithholdings.Where(x => x.Date <= Date_2yback).Sum(x => x.BalUnits * x.NAV);
                         decimal amountLT = buyTransactionswithholdings.Where(x => x.Date <= Date_2yback).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedLt = amountLT - costLT;
                         mutualfund.LtAmount = amountLT;
                         mutualfund.LtUnits = buyTransactionswithholdings.Where(x => x.Date <= Date_2yback).Sum(x => x.BalUnits);
 
-                        decimal costST = buyTransactionswithholdings.Where(x => x.Date > Date_2yback).Sum(x => x.BalUnits * x.Price);
+                        // <2y St
+                        decimal costST = buyTransactionswithholdings.Where(x => x.Date > Date_2yback).Sum(x => x.BalUnits * x.NAV);
                         decimal amountST = buyTransactionswithholdings.Where(x => x.Date > Date_2yback).Sum(x => x.BalUnits) * mutualfund.navMutualfund.NAV;
                         mutualfund.UnrealisedSt = amountST - costST;
                         mutualfund.StAmount = amountST;
@@ -375,18 +444,23 @@ namespace Fam
                     }
 
                     // Wtdavgdays
-                    var sumproduct = buyTransactionswithholdings.Sum(x => x.DaysHolding * x.BalAmount);
+                    var sumproduct = buyTransactionswithholdings.Sum(x => x.Wtdavgdaysheld * x.BalAmount);
                     var sum = buyTransactionswithholdings.Sum(x => x.BalAmount);
                     mutualfund.Wtdavgdaysholding = sum > 0 ? sumproduct / sum : 0;
                 }
 
                 // Wtdavgdays - lifetime
-                var sumproductlt = buyTransactions.Sum(x => x.Wtdavgdaysheld * x.Amount);
+                var sumproductlt = buyTransactions.Sum(x => x.Wtdavgdayslifetime * x.Amount);
                 var sumlt = buyTransactions.Sum(x => x.Amount);
                 mutualfund.WtdavgdaysLifetime = sumlt > 0 ? sumproductlt / sumlt : 0;
             }
 
-            var mutualfundswithholdings = _mutualfunds.Where(x => x.Units > 0);
+            OnPropertyChanged(nameof(Mutualfunds));
+        }
+
+        private void Calculatepf()
+        {
+            var mutualfundswithholdings = _filtermutualfundswithholdings.ToList();
 
             // Wtdavgdays
             var Pfsumproduct = mutualfundswithholdings.Sum(x => x.Wtdavgdaysholding * x.BalAmt);
@@ -394,129 +468,318 @@ namespace Fam
             Wtdavgdaysholding = Pfsum > 0 ? Pfsumproduct / Pfsum : 0;
 
             // Wtdavgdays - lifetime
-            var Pfsumproductlt = _mutualfunds.Sum(x => x.WtdavgdaysLifetime * x.AmountLifetime);
-            var Pfsumlt = _mutualfunds.Sum(x => x.AmountLifetime);
+            var Pfsumproductlt = _filtermutualfunds.Sum(x => x.WtdavgdaysLifetime * x.AmountLifetime);
+            var Pfsumlt = _filtermutualfunds.Sum(x => x.AmountLifetime);
             Wtdavgdayslifetime = Pfsumlt > 0 ? Pfsumproductlt / Pfsumlt : 0;
 
-            // Calculate Lat Amt ratio for current funds
-            var maxAmt = mutualfundswithholdings.Max(x => x.LatestAmount);
-            var maxProfit = mutualfundswithholdings.Max(x => x.Profit);
-            var maxUlt = mutualfundswithholdings.Max(x => x.UnrealisedLt);
-            var maxUst = mutualfundswithholdings.Max(x => x.UnrealisedSt);
-            var maxPropercept = mutualfundswithholdings.Max(x => x.Profitpercent);
-            var maxwadays = mutualfundswithholdings.Max(x => x.Wtdavgdaysholding);
-            var maxxirr = (double)mutualfundswithholdings.Max(x => x.XirrHolding);
-            foreach (Mutualfund fund in mutualfundswithholdings)
+            // Calculate ratios for current funds
+            if (mutualfundswithholdings.Count() > 0)
             {
-                fund.LatestAmtratio = (fund.LatestAmount / maxAmt) * 100;
-                fund.Profitratio = (fund.Profit / maxProfit) * 100;
-                fund.Ultratio = (fund.UnrealisedLt / maxUlt) * 100;
-                fund.Ustratio = (fund.UnrealisedSt / maxUst) * 100;
-                fund.Properratio = (fund.Profitpercent / maxPropercept) * 100;
-                fund.Wadaysratio = (fund.Wtdavgdaysholding / maxwadays) * 100;
-                fund.Xirrratio = (fund.XirrHolding / maxxirr) * 100;
+                var maxAmt = mutualfundswithholdings.Max(x => x.LatestAmount);
+                var maxProfit = mutualfundswithholdings.Max(x => x.Profit);
+                var maxCg = mutualfundswithholdings.Max(x => Math.Max(x.UnrealisedLt, x.UnrealisedSt));
+                var maxPropercept = mutualfundswithholdings.Max(x => x.Profitpercent);
+                var maxwadays = mutualfundswithholdings.Max(x => x.Wtdavgdaysholding);
+                var maxxirr = (double)mutualfundswithholdings.Max(x => x.XirrHolding);
+                foreach (Mutualfund fund in mutualfundswithholdings)
+                {
+                    fund.LatestAmtratio = (fund.LatestAmount / maxAmt) * 100;
+                    fund.Profitratio = (fund.Profit / maxProfit) * 100;
+                    fund.Ultratio = (fund.UnrealisedLt / maxCg) * 100;
+                    fund.Ustratio = (fund.UnrealisedSt / maxCg) * 100;
+                    fund.Properratio = (fund.Profitpercent / maxPropercept) * 100;
+                    fund.Wadaysratio = (fund.Wtdavgdaysholding / maxwadays) * 100;
+                    fund.Xirrratio = (fund.XirrHolding / maxxirr) * 100;
+                }
             }
 
-            OnPropertyChanged(nameof(Mutualfunds));
+            //OnPropertyChanged(null);
         }
 
-
-        public void CreateCategories()
+        private void CreateCategories()
         {
-            var mutualfundswithholdings = _mutualfunds.Where(x => x.Units > 0 && x.BalAmt > 0).OrderBy(x => x.Taxcategory);
+            var mutualfundswithholdings = _filtermutualfundswithholdings.Where(x => x.BalAmt > 0);
 
-            _categories = mutualfundswithholdings.DistinctBy(x => x.Taxcategory).Select(x => new Category(x.Taxcategory.ToString(), x.Taxcategory)).ToList();
-            _subcategories = mutualfundswithholdings.DistinctBy(x => x.Subcategory).Select(x => new Category(x.Subcategory.ToString(), x.Taxcategory)).ToList();
+            if (_categories == null || _categories.Count == 0)
+                _categories = mutualfundswithholdings.DistinctBy(x => x.Taxcategory).Select(x => new Category(x.Taxcategory.ToString(), x.Taxcategory)).OrderBy(x => x.Taxcategory).ToList();
+            if (_subcategories == null || _subcategories.Count == 0)
+                _subcategories = mutualfundswithholdings.DistinctBy(x => x.Subcategory).Select(x => new Category(x.Subcategory.ToString(), x.Taxcategory)).ToList();
 
-            var totalLatestamt = mutualfundswithholdings.Sum(x => x.LatestAmount);
-
-            foreach (Category item in _categories)
+            if (_subcategories.Count > 0)
             {
-                var itemfunds = mutualfundswithholdings.Where(x => x.Taxcategory.ToString() == item.Name);
-                var amount = itemfunds.Sum(x => x.BalAmt);
-                var latestamount = itemfunds.Sum(x => x.LatestAmount);
-                var profit = itemfunds.Sum(x => x.Profit);
-                var ult = itemfunds.Sum(x => x.UnrealisedLt);
-                var ust = itemfunds.Sum(x => x.UnrealisedSt);
-                var sumproduct = itemfunds.Sum(x => x.Wtdavgdaysholding * x.BalAmt);
-                var sum = itemfunds.Sum(x => x.BalAmt);
-                var wadays = sumproduct / sum;
-                item.Setvalues(itemfunds.Count(), amount, latestamount, profit, ult, ust, wadays, latestamount / totalLatestamt);
+                var totalLatestamt = mutualfundswithholdings.Sum(x => x.LatestAmount);
+
+                // categories
+                foreach (Category item in _categories)
+                {
+                    var itemfunds = mutualfundswithholdings.Where(x => x.Taxcategory.ToString() == item.Name);
+                    var amount = itemfunds.Sum(x => x.BalAmt);
+                    var latestamount = itemfunds.Sum(x => x.LatestAmount);
+                    var profit = itemfunds.Sum(x => x.Profit);
+                    var ult = itemfunds.Sum(x => x.UnrealisedLt);
+                    var ust = itemfunds.Sum(x => x.UnrealisedSt);
+                    var sumproduct = itemfunds.Sum(x => x.Wtdavgdaysholding * x.BalAmt);
+                    var sum = itemfunds.Sum(x => x.BalAmt);
+                    var wadays = sum > 0 ? sumproduct / sum : 0;
+                    var latestamtshare = totalLatestamt > 0 ? latestamount / totalLatestamt : 0;
+                    item.Setvalues(itemfunds.Count(), amount, latestamount, profit, ult, ust, wadays, latestamtshare);
+                }
+
+                // subcategories
+                foreach (Category item in _subcategories)
+                {
+                    var itemfunds = mutualfundswithholdings.Where(x => x.Subcategory == item.Name);
+                    var amount = itemfunds.Sum(x => x.BalAmt);
+                    var latestamount = itemfunds.Sum(x => x.LatestAmount);
+                    var profit = itemfunds.Sum(x => x.Profit);
+                    var ult = itemfunds.Sum(x => x.UnrealisedLt);
+                    var ust = itemfunds.Sum(x => x.UnrealisedSt);
+                    var sumproduct = itemfunds.Sum(x => x.Wtdavgdaysholding * x.BalAmt);
+                    var sum = itemfunds.Sum(x => x.BalAmt);
+                    var wadays = sum > 0 ? sumproduct / sum : 0;
+                    var latestamtshare = totalLatestamt > 0 ? latestamount / totalLatestamt : 0;
+                    item.Setvalues(itemfunds.Count(), amount, latestamount, profit, ult, ust, wadays, latestamtshare);
+                }
+
+                _subcategories = _subcategories.OrderBy(x => x.Name).ToList();
+
+                CreateCategoryratios();
+                CreateCategorycharts();
             }
-
-            var maxAmt = _categories.Max(x => x.LatestAmount);
-            var maxProfit = _categories.Max(x => x.Profit);
-            var maxUlt = _categories.Max(x => x.UnrealisedLt);
-            var maxUst = _categories.Max(x => x.UnrealisedSt);
-            var maxPropercept = _categories.Max(x => x.Profitpercent);
-            var maxwadays = _categories.Max(x => x.Wtdavgdaysholding);
-            var maxxirr = (double)_categories.Max(x => x.XirrHolding);
-
-            foreach (Category item in _categories)
-            {
-                item.LatestAmtratio = (item.LatestAmount / maxAmt) * 100;
-                item.Profitratio = (item.Profit / maxProfit) * 100;
-                item.Ultratio = (item.UnrealisedLt / maxUlt) * 100;
-                item.Ustratio = (item.UnrealisedSt / maxUst) * 100;
-                item.Properratio = (item.Profitpercent / maxPropercept) * 100;
-                item.Wadaysratio = (item.Wtdavgdaysholding / maxwadays) * 100;
-                item.Xirrratio = (item.XirrHolding / maxxirr) * 100;
-            }
-
-            foreach (Category item in _subcategories)
-            {
-                var itemfunds = mutualfundswithholdings.Where(x => x.Subcategory == item.Name);
-                var amount = itemfunds.Sum(x => x.BalAmt);
-                var latestamount = itemfunds.Sum(x => x.LatestAmount);
-                var profit = itemfunds.Sum(x => x.Profit);
-                var ult = itemfunds.Sum(x => x.UnrealisedLt);
-                var ust = itemfunds.Sum(x => x.UnrealisedSt);
-                var sumproduct = itemfunds.Sum(x => x.Wtdavgdaysholding * x.BalAmt);
-                var sum = itemfunds.Sum(x => x.BalAmt);
-                var wadays = sumproduct / sum;
-                item.Setvalues(itemfunds.Count(), amount, latestamount, profit, ult, ust, wadays, latestamount / totalLatestamt);
-            }
-
-            maxAmt = _subcategories.Max(x => x.LatestAmount);
-            maxProfit = _subcategories.Max(x => x.Profit);
-            maxUlt = _subcategories.Max(x => x.UnrealisedLt);
-            maxUst = _subcategories.Max(x => x.UnrealisedSt);
-            maxPropercept = _subcategories.Max(x => x.Profitpercent);
-            maxwadays = _subcategories.Max(x => x.Wtdavgdaysholding);
-            maxxirr = (double)_subcategories.Max(x => x.XirrHolding);
-
-            foreach (Category item in _subcategories)
-            {
-                item.LatestAmtratio = (item.LatestAmount / maxAmt) * 100;
-                item.Profitratio = (item.Profit / maxProfit) * 100;
-                item.Ultratio = (item.UnrealisedLt / maxUlt) * 100;
-                item.Ustratio = (item.UnrealisedSt / maxUst) * 100;
-                item.Properratio = (item.Profitpercent / maxPropercept) * 100;
-                item.Wadaysratio = (item.Wtdavgdaysholding / maxwadays) * 100;
-                item.Xirrratio = (item.XirrHolding / maxxirr) * 100;
-            }
-
-            _subcategories = _subcategories.OrderBy(x => x.Name).ToList();
 
             OnPropertyChanged(nameof(Categories));
             OnPropertyChanged(nameof(Subcategories));
         }
 
-
-        public void CreateCapitalgains()
+        private void CreateCategoryratios()
         {
-            _capitalgains = new List<Capitalgain>();
+            if (Categories.Count > 0)
+            {
+                var _categoriestemp = Categories;
+
+                // ratios
+                var maxAmt = _categoriestemp.Max(x => x.LatestAmount);
+                var maxProfit = _categoriestemp.Max(x => x.Profit);
+                var maxCg = _categoriestemp.Max(x => Math.Max(x.UnrealisedLt, x.UnrealisedSt));
+                var maxPropercept = _categoriestemp.Max(x => x.Profitpercent);
+                var maxwadays = _categoriestemp.Max(x => x.Wtdavgdaysholding);
+                var maxxirr = (double)_categoriestemp.Max(x => x.XirrHolding);
+                foreach (Category item in _categoriestemp)
+                {
+                    item.LatestAmtratio = (item.LatestAmount / maxAmt) * 100;
+                    item.Profitratio = (item.Profit / maxProfit) * 100;
+                    item.Ultratio = (item.UnrealisedLt / maxCg) * 100;
+                    item.Ustratio = (item.UnrealisedSt / maxCg) * 100;
+                    item.Properratio = (item.Profitpercent / maxPropercept) * 100;
+                    item.Wadaysratio = (item.Wtdavgdaysholding / maxwadays) * 100;
+                    item.Xirrratio = (item.XirrHolding / maxxirr) * 100;
+                }
+            }
+
+            if (Subcategories.Count > 0)
+            {
+                var _subcategoriestemp = Subcategories;
+
+                // ratios
+                var maxAmt = _subcategoriestemp.Max(x => x.LatestAmount);
+                var maxProfit = _subcategoriestemp.Max(x => x.Profit);
+                var maxCg = _subcategoriestemp.Max(x => Math.Max(x.UnrealisedLt, x.UnrealisedSt));
+                var maxPropercept = _subcategoriestemp.Max(x => x.Profitpercent);
+                var maxwadays = _subcategoriestemp.Max(x => x.Wtdavgdaysholding);
+                var maxxirr = (double)_subcategoriestemp.Max(x => x.XirrHolding);
+                foreach (Category item in _subcategoriestemp)
+                {
+                    item.LatestAmtratio = (item.LatestAmount / maxAmt) * 100;
+                    item.Profitratio = (item.Profit / maxProfit) * 100;
+                    item.Ultratio = (item.UnrealisedLt / maxCg) * 100;
+                    item.Ustratio = (item.UnrealisedSt / maxCg) * 100;
+                    item.Properratio = (item.Profitpercent / maxPropercept) * 100;
+                    item.Wadaysratio = (item.Wtdavgdaysholding / maxwadays) * 100;
+                    item.Xirrratio = (item.XirrHolding / maxxirr) * 100;
+                }
+            }
+        }
+
+        public void CreateCategorycharts()
+        {
+            var mutualfundswithholdings = _filtermutualfundswithholdings.Where(x => x.BalAmt > 0);
+            var totalLatestamt = mutualfundswithholdings.Sum(x => x.LatestAmount);
+
+            //_categoryseries = _categories.Select(x => new PieSeries<double> { Values = new double[] { (double)(x.LatestAmount / totalLatestamt) }, Name = x.Name, MaxRadialColumnWidth = 100 }).ToArray();
+
+            _categoryseries = new ISeries[]
+            {
+                new PieSeries<double> {
+                    Name = "Equity", Values = new double[] { 50, 0 },
+                    Fill = new SolidColorPaint(SKColors.RoyalBlue), DataLabelsPaint = new SolidColorPaint(SKColors.White),
+                    DataLabelsSize = 12, DataLabelsFormatter = point =>
+                    {
+                    if (point.Coordinate.PrimaryValue == 0) return string.Empty;
+                    double percent = point.StackedValue.Share;
+                    return $"{percent:P0}";
+                    }, },
+                new PieSeries<double> {
+                    Name = "Eq1",
+                    Values = new double[] { 0, 30 },
+                    Fill = new SolidColorPaint(SKColors.CornflowerBlue),
+                    DataLabelsPaint = new SolidColorPaint(SKColors.Black),
+                    DataLabelsSize = 12, DataLabelsFormatter = point =>
+                    {
+                    if (point.Coordinate.PrimaryValue == 0) return string.Empty;
+                    double percent = point.StackedValue.Share;
+                    return $"{point.Context.Series.Name}: {percent:P0}";
+                    },
+                    DataLabelsPosition = PolarLabelsPosition.Outer, },
+                new PieSeries<double> { Name = "Eq2", Values = new double[] { 0, 20 },   Fill = new SolidColorPaint(SKColors.DodgerBlue) },
+                new PieSeries<double> { Name = "Debt", Values = new double[] { 40, 0 },   Fill = new SolidColorPaint(SKColors.DarkGreen) },
+                new PieSeries<double> { Name = "D1", Values = new double[] { 0, 40 },   Fill = new SolidColorPaint(SKColors.ForestGreen) },
+                new PieSeries<double> { Name = "Others", Values = new double[] { 10, 0 },   Fill = new SolidColorPaint(SKColors.Goldenrod) },
+                new PieSeries<double> { Name = "C1", Values = new double[] { 0, 10 },   Fill = new SolidColorPaint(SKColors.Beige) },
+            };
+
+            OnPropertyChanged(nameof(Categoryseries));
+        }
+
+        private void CreateCapitalgains()
+        {
+            _capitalgains ??= new List<Capitalgain>();
 
             int currentfy = DateTime.Today.Month < 3 ? DateTime.Today.Year : DateTime.Today.Year + 1;
-
             foreach (TaxCategory item in Enum.GetValues<TaxCategory>())
             {
-                _capitalgains.Add(new Capitalgain(currentfy, item));
-                _capitalgains.Add(new Capitalgain(currentfy - 1, item));
+                if (!_capitalgains.Any(x => x.Year == currentfy && x.Taxcategory == item))
+                    _capitalgains.Add(new Capitalgain(currentfy, item));
+                if (!_capitalgains.Any(x => x.Year == currentfy - 1 && x.Taxcategory == item))
+                    _capitalgains.Add(new Capitalgain(currentfy - 1, item));
             }
+
+            foreach (Capitalgain item in _capitalgains)
+            {
+                var _mutualfundsCg = _filtermutualfunds.Where(x => x.Taxcategory == item.Taxcategory);
+                var _transactionsCg = _transactions.Where(x => _mutualfundsCg.Any(y => y.Name == x.Name && y.Folio == x.Folio) && x.Transactiontype == TransactionType.sell && x.Date >= item.FirstDate && x.Date <= item.LastDate);
+
+                item.BookedLt = 0;
+                item.BookedSt = 0;
+
+                // since FY 2026
+                // >1y Lt   
+                if (item.Taxcategory == TaxCategory.Equity || item.Taxcategory == TaxCategory.GoldSilverETFs)
+                {
+                    foreach (Transaction trsn in _transactionsCg)
+                    {
+                        item.BookedLt += trsn.BalancedTransactions.Where(x => x.Item1.Date <= trsn.Date.AddYears(-1)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                        item.BookedSt += trsn.BalancedTransactions.Where(x => x.Item1.Date > trsn.Date.AddYears(-1)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                    }
+                }
+                // bought before 1 april 2023 - >2y Lt
+                else if (item.Taxcategory == TaxCategory.Debt)
+                {
+                    foreach (Transaction trsn in _transactionsCg)
+                    {
+                        item.BookedLt += trsn.BalancedTransactions.Where(x => x.Item1.Date < new DateTime(2023, 4, 1)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                        item.BookedSt += trsn.BalancedTransactions.Where(x => x.Item1.Date >= new DateTime(2023, 4, 1)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                    }
+                }
+                // >2y Lt 
+                else if (item.Taxcategory == TaxCategory.Others)
+                {
+                    foreach (Transaction trsn in _transactionsCg)
+                    {
+                        item.BookedLt += trsn.BalancedTransactions.Where(x => x.Item1.Date <= trsn.Date.AddYears(-2)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                        item.BookedSt += trsn.BalancedTransactions.Where(x => x.Item1.Date > trsn.Date.AddYears(-2)).Sum(x => x.Item2 * (trsn.NAV - x.Item1.NAV));
+                    }
+                }
+            }
+
+            _capitalgains.RemoveAll(x => x.Taxcategory == TaxCategory.Uncategorised && x.BookedLt == 0 && x.BookedSt == 0);
 
             OnPropertyChanged(nameof(Capitalgains));
         }
 
+        public decimal Amtlifetime => _filtermutualfundswithholdings.Sum(x => x.AmountLifetime);
+        public decimal LatestAmtlifetime => _filtermutualfundswithholdings.Sum(x => x.FinalamountLifetime);
+
+        public decimal Wtdavgdayslifetime
+        {
+            get { return _wtdavgdayslifetime; }
+            private set
+            {
+                if (_wtdavgdayslifetime != value)
+                {
+                    _wtdavgdayslifetime = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(Xirrlifetime));
+                }
+            }
+        }
+        public double Xirrlifetime => Amtlifetime > 0 && Wtdavgdayslifetime > 0 ? Math.Pow((double)(LatestAmtlifetime / Amtlifetime), (double)(365 / Wtdavgdayslifetime)) - 1 : 0;
+
+        public decimal Wtdavgdaysholding
+        {
+            get { return _wtdavgdaysholding; }
+            private set
+            {
+                if (_wtdavgdaysholding != value)
+                {
+                    _wtdavgdaysholding = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(XirrHolding));
+                }
+            }
+        }
+        public double XirrHolding => Amt > 0 && Wtdavgdaysholding > 0 ? Math.Pow((double)(LatestAmt / Amt), (double)(365 / Wtdavgdaysholding)) - 1 : 0;
+
+        public int Fundscount => _filtermutualfundswithholdings.Count(x => x.Units > 0);
+
+
+        private void CreateFolios()
+        {
+            _foliogroups ??= new();
+            var defaultgroup = new Foliogroup("Default");
+            if (_foliogroups.Count == 0)
+                _foliogroups.Add(defaultgroup);
+            else defaultgroup = null;
+
+            _folios ??= new();
+            var folios = _mutualfunds.DistinctBy(x => x.Folio).Select(x => new Folio(x.Folio, x.FundName, defaultgroup, this)).OrderBy(x => x.Fundname).ThenBy(x => x.Name).ToList();
+
+            foreach (Folio item in folios)
+            {
+                if (!_folios.Any(x => x.Name == item.Name && x.Fundname == item.Fundname))
+                    _folios.Add(item);
+            }
+
+            foreach (Folio item in _folios)
+            {
+                item.Isactive = _mutualfunds.Where(x => x.Folio == item.Name && x.FundName == item.Fundname).Sum(x => x.Units) > 0;
+                item.Fundslist ??= new();
+                if (item.Isactive)
+                    item.Fundslist = _mutualfunds.Where(x => x.Folio == item.Name && x.FundName == item.Fundname).ToList();
+            }
+
+            OnPropertyChanged(nameof(Folios));
+            OnPropertyChanged(nameof(Foliogroups));
+            OnPropertyChanged(nameof(Foliofilter));
+        }
+
+        public void AddFoliogroup(string groupname)
+        {
+            _foliogroups.Add(new Foliogroup(groupname));
+            OnPropertyChanged(nameof(Foliogroups));
+            OnPropertyChanged(nameof(Aregroups));
+        }
+
+        public void RemoveFoliogroup(Foliogroup group)
+        {
+            if (_foliogroups.Contains(group) && _foliogroups.Count() > 1)
+            {
+                foreach (Folio folio in _folios)
+                    if (folio.Group == group)
+                        return;
+
+                _foliogroups.Remove(group);
+                OnPropertyChanged(nameof(Foliogroups));
+            }
+        }
     }
 }

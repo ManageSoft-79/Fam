@@ -14,6 +14,7 @@ namespace Fam
         public MainWindow()
         {
             InitializeComponent();
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -34,34 +35,13 @@ namespace Fam
 
         private void butNew_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog openFileDialog = new()
-            {
-                Multiselect = true,
-                Title = "Select Transactions CSV File",
-                Filter = "CSV files (*.csv)|*.csv",
-                FilterIndex = 0,
-                DefaultExt = ".csv"
-            };
+            var filepaths = FileService.SelectTransactionfiles();
 
-        SelectFile:
-            if (openFileDialog.ShowDialog() == true)
-            {
-                var filepaths = openFileDialog.FileNames;
-
-                var ext = filepaths.Select(x => Path.GetExtension(x)).ToArray();
-                if (ext.Any(x => x != ".csv"))
-                {
-                    MessageBox.Show("Selected file type is not csv. Only csv files are supported. Please select csv files.", "Filetype mismatch");
-                    goto SelectFile;
-                }
-
+            if (filepaths.Count() > 0)
                 try
                 {
                     var name = Path.GetFileNameWithoutExtension(filepaths[0]);
-
-                    // Load Transactions from file(s)
-                    var transactions = DataService.Loadtransactionsfromfiles(filepaths);
-
+                    var transactions = DataService.LoadtransactionsFromfiles(filepaths);
                     Portfolio NewPf = new(name, transactions);
 
                     DashWindow DashWin = new() { Owner = this, DataContext = NewPf };
@@ -71,9 +51,8 @@ namespace Fam
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Could not load file due to following error: \n" + ex.Message);
+                    MessageBox.Show("Could not load a file due to following error: \n" + ex.Message);
                 }
-            }
         }
 
         private void butOpen_Click(object sender, RoutedEventArgs e)
@@ -87,7 +66,7 @@ namespace Fam
                 DefaultExt = ".xml"
             };
 
-        SelectFile:
+        OpenFile:
             if (openFileDialog.ShowDialog() == true)
             {
                 string filepath = openFileDialog.FileName;
@@ -95,17 +74,17 @@ namespace Fam
                 string ext = Path.GetExtension(filepath);
                 if (ext != ".xml")
                 {
-                    MessageBox.Show("Selected file type is not xml. Only xml files are supported. Please select a xml file.", "Filetype mismatch");
-                    goto SelectFile;
+                    MessageBox.Show("Selected file type is not xml. Only xml files are supported. Please select an xml file.", "Filetype mismatch");
+                    goto OpenFile;
                 }
 
                 try
                 {
-                    Portfolio NewPf = (Portfolio)DataService.ReadData(filepath);
-                    NewPf.SaveFilePath = filepath;
-                    NewPf.initialise();
+                    Portfolio portfolio = (Portfolio)DataService.ReadData(filepath);
+                    portfolio.SaveFilePath = filepath;
+                    Task.Run(() => portfolio.Loadportfolio());
 
-                    DashWindow DashWin = new() { Owner = this, DataContext = NewPf };
+                    DashWindow DashWin = new() { Owner = this, DataContext = portfolio };
                     DashWin.Show();
 
                     Hide();

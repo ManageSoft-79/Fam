@@ -1,15 +1,8 @@
 ﻿using Microsoft.Win32;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace Fam
 {
@@ -18,7 +11,7 @@ namespace Fam
     /// </summary>
     public partial class DashWindow : Window
     {
-        Portfolio Pf => (Portfolio)DataContext;
+        Portfolio portfolio => (Portfolio)DataContext;
 
         public DashWindow()
         {
@@ -29,25 +22,49 @@ namespace Fam
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (!DataService.CheckSaved(portfolio.SaveFilePath, portfolio))
+            {
+                var resp = MessageBox.Show("File is not saved. Do you want to save now?", "Dashboard", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+                if (resp == MessageBoxResult.Yes)
+                {
+                    butSave_Click(sender, new RoutedEventArgs());
+                    if (!DataService.CheckSaved(portfolio.SaveFilePath, portfolio))
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                }
+                else if (resp == MessageBoxResult.Cancel)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
             Owner?.Close();
         }
 
         private void butSave_Click(object sender, RoutedEventArgs e)
         {
-            if (Pf is not null)
+            if (portfolio is not null && string.IsNullOrEmpty(portfolio.SaveFilePath))
             {
-                if (string.IsNullOrEmpty(Pf.SaveFilePath))
+                SaveFileDialog sfd = new()
                 {
-                    SaveFileDialog sfd = new() { Title = "Save Portfolio As", Filter = "XML Files (*.xml)|*.xml", FilterIndex = 0, DefaultExt = ".xml" };
-                    if (sfd.ShowDialog() == true)
-                    {
-                        DataService.SaveData(sfd.FileName, Pf);
-                        MessageBox.Show("Saved", "Portfolio");
-                        Pf.SaveFilePath = sfd.FileName;
-                    }
+                    Title = "Save Portfolio As",
+                    Filter = "XML Files (*.xml)|*.xml",
+                    FileName = portfolio.Name,
+                    FilterIndex = 0,
+                    DefaultExt = ".xml"
+                };
+                if (sfd.ShowDialog() == true)
+                {
+                    DataService.SaveData(sfd.FileName, portfolio);
+                    MessageBox.Show("Saved", "Portfolio");
+                    portfolio.SaveFilePath = sfd.FileName;
                 }
-                else DataService.SaveData(Pf.SaveFilePath, Pf);
             }
+            else DataService.SaveData(portfolio.SaveFilePath, portfolio);
         }
 
         private void toggle_CheckedChanged(object sender, RoutedEventArgs e)
@@ -69,39 +86,50 @@ namespace Fam
                 if (toggleCapitalgains.IsChecked == true)
                     gridCapitalgains.Visibility = Visibility.Visible;
                 else gridCapitalgains.Visibility = Visibility.Collapsed;
+
+                if (toggleFolios.IsChecked == true)
+                    gridFolios.Visibility = Visibility.Visible;
+                else gridFolios.Visibility = Visibility.Collapsed;
+
+                if (toggleChart.IsChecked == true)
+                    gridChart.Visibility = Visibility.Visible;
+                else gridChart.Visibility = Visibility.Collapsed;
             }
         }
 
         private void butCopy_Click(object sender, RoutedEventArgs e)
         {
-            if (Pf is not null)
+            if (portfolio is not null)
             {
                 if (toggleTrasactions.IsChecked == true)
                 {
-                    string[] Transactions = Pf.Transactions.Select(x => new string(x.Date.ToString("dd-MM-yyyy") + "\t" + x.Name + "\t" + x.Folio + "\t" + x.Transactiontype + "\t" + x.Units + "\t" + x.Price + "\t" + x.Amount)).ToArray();
-                    Clipboard.SetText(string.Join("\n", Transactions));
+                    string Headers = "Date" + "\t" + "Name of fund" + "\t" + "Folio" + "\t" + "Transaction" + "\t" + "Units" + "\t" + "NAV" + "\t" + "Amount" + "\t" + "Bal units";
+                    string[] Transactions = portfolio.Transactions.Select(x => new string(x.Date.ToString("dd-MM-yyyy") + "\t" + x.Name + "\t" + x.Folio + "\t" + x.Transactiontype + "\t" + x.Units + "\t" + x.NAV + "\t" + Math.Round(x.Amount, 0) + "\t" + x.BalUnits)).ToArray();
+                    Clipboard.SetText(Headers + "\n" + string.Join("\n", Transactions));
                     MessageBox.Show("Copied " + Transactions.Length.ToString());
                 }
                 else if (toggleMutualfunds.IsChecked == true)
                 {
-                    string[] Mutualfunds = Pf.Mutualfunds.Select(x => new string(x.Name + "\t" + x.Folio)).ToArray();
-                    Clipboard.SetText(string.Join("\n", Mutualfunds));
+                    string Headers = "Name of fund" + "\t" + "Folio" + "\t" + "Amount" + "\t" + "Units" + "\t" + "NAV" + "\t" + "Current NAV" + "\t" + "Latest amt" + "\t" + "Profit" + "\t" + "%";
+                    string[] Mutualfunds = portfolio.Mutualfunds.Select(x => new string(x.Name + "\t" + x.Folio + "\t" + Math.Round(x.BalAmt, 0) + "\t" + x.Units + "\t" + x.NAV + "\t" + x.navMutualfund?.NAV + "\t" + Math.Round(x.LatestAmount, 0) + "\t" + Math.Round(x.Profit, 0) + "\t" + x.Profitpercent.ToString("P1"))).ToArray();
+                    Clipboard.SetText(Headers + "\n" + string.Join("\n", Mutualfunds));
                     MessageBox.Show("Copied " + Mutualfunds.Length.ToString());
-                }
-                else if (toggleCategories.IsChecked == true)
-                {
-
                 }
             }
         }
 
         private void butClear_Click(object sender, RoutedEventArgs e)
         {
-            if (Pf.TransactionFilter != null || Pf.TransactionFilter2 != null)
+            if (portfolio.TransactionFilter != null || portfolio.TransactionFilter2 != null)
             {
-                Pf.TransactionFilter = null;
-                Pf.TransactionFilter2 = null;
-                Pf.OnPropertyChanged(nameof(Portfolio.Transactions));
+                portfolio.TransactionFilter = null;
+                portfolio.TransactionFilter2 = null;
+                portfolio.OnPropertyChanged(nameof(Portfolio.Transactions));
+            }
+            if (portfolio.MutualfundFilter != null)
+            {
+                portfolio.MutualfundFilter = null;
+                portfolio.OnPropertyChanged(nameof(Portfolio.Mutualfunds));
             }
         }
 
@@ -109,19 +137,22 @@ namespace Fam
         {
             if (sender is ListViewItem item && item.Content is Mutualfund Mf)
             {
-                Pf.TransactionFilter = Mf;
-                Pf.OnPropertyChanged(nameof(Portfolio.Transactions));
+                portfolio.TransactionFilter = Mf;
+                portfolio.OnPropertyChanged(nameof(Portfolio.Transactions));
                 toggleTrasactions.IsChecked = true;
             }
         }
 
         private void butRefresh_Click(object sender, RoutedEventArgs e)
         {
-            Pf.OnPropertyChanged(nameof(Portfolio.Transactions));
-            Pf.OnPropertyChanged(nameof(Portfolio.Mutualfunds));
-            Pf.OnPropertyChanged(nameof(Portfolio.Categories));
-            Pf.OnPropertyChanged(nameof(Portfolio.Subcategories));
-            Pf.OnPropertyChanged(nameof(Portfolio.Capitalgains));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Transactions));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Mutualfunds));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Categories));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Subcategories));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Capitalgains));
+            portfolio.OnPropertyChanged(nameof(Portfolio.Folios));
+
+            portfolio.CreateCategorycharts();
         }
 
         private void butDownloadlinks_Click(object sender, RoutedEventArgs e)
@@ -131,12 +162,65 @@ namespace Fam
 
         private void lviCapitalgains_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (sender is ListViewItem item && item.Content is Capitalgain Cg)
+            if (sender is ListViewItem item && item.Content is Capitalgain Cg && (Cg.BookedLt > 0 || Cg.BookedSt > 0))
             {
-                Pf.TransactionFilter2 = Cg;
-                Pf.OnPropertyChanged(nameof(Portfolio.Transactions));
+                portfolio.TransactionFilter2 = Cg;
+                portfolio.OnPropertyChanged(nameof(Portfolio.Transactions));
                 toggleTrasactions.IsChecked = true;
             }
+        }
+
+        private void butClearfilter_Click(object sender, RoutedEventArgs e)
+        {
+            if (portfolio.Foliogroups.Count() > 1)
+                portfolio.Foliofilter = null;
+        }
+
+        private void butDeletegroup_Click(object sender, RoutedEventArgs e)
+        {
+            portfolio.RemoveFoliogroup((Foliogroup)((Button)sender).DataContext);
+        }
+
+        private void butAddgroup_Click(object sender, RoutedEventArgs e)
+        {
+            string groupname = "New group";
+            int i = 1;
+            while (portfolio.Foliogroups.Any(x => x.Name == groupname))
+                groupname = "New group " + i.ToString();
+
+            portfolio.AddFoliogroup(groupname);
+        }
+
+        private void lviSubcategories_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is ListViewItem item && item.Content is Category category)
+            {
+                portfolio.MutualfundFilter = category;
+                portfolio.OnPropertyChanged(nameof(Portfolio.Mutualfunds));
+            }
+        }
+
+        private void butReloadfiles_Click(object sender, RoutedEventArgs e)
+        {
+            var filepaths = FileService.SelectTransactionfiles();
+
+            if (filepaths.Count() > 0)
+                try
+                {
+                    var name = Path.GetFileNameWithoutExtension(filepaths[0]);
+                    var transactions = DataService.LoadtransactionsFromfiles(filepaths);
+
+                    if (transactions.Count() < portfolio.Transactions.Count)
+                    {
+                        var res = MessageBox.Show("Total no. of new transactions is less than currently existing transactions.\nDo you still want to continue?", "Warning", MessageBoxButton.YesNoCancel);
+                        if (res == MessageBoxResult.Yes)
+                            portfolio.LoadTransactions(transactions);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Could not load a file due to following error: \n" + ex.Message);
+                }
         }
     }
 }

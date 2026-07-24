@@ -155,7 +155,6 @@ namespace Fam
             portfolio.OnPropertyChanged(nameof(Portfolio.Subcategories));
             portfolio.OnPropertyChanged(nameof(Portfolio.Capitalgains));
             portfolio.OnPropertyChanged(nameof(Portfolio.Folios));
-
             //DataService.CreateSubcategorycolours();
             //portfolio.CreateCategorychart();
         }

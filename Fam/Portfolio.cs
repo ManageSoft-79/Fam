@@ -608,8 +608,6 @@ namespace Fam
             var mutualfundswithholdings = _filtermutualfundswithholdings.Where(x => x.BalAmt > 0);
             var totalLatestamt = mutualfundswithholdings.Sum(x => x.LatestAmount);
 
-            //_categoryseries = _categories.Select(x => new PieSeries<double> { Values = new double[] { (double)(x.LatestAmount / totalLatestamt) }, Name = x.Name, MaxRadialColumnWidth = 100 }).ToArray();
-
             Categoryseries = new ObservableCollection<ISeries>();
 
             foreach (Category item in Categories)
@@ -621,7 +619,7 @@ namespace Fam
                     DataLabelsPaint = new SolidColorPaint
                     {
                         Color = SKColors.Black,
-                        SKTypeface = SKTypeface.FromFamilyName(null, SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
+                        //SKTypeface = SKTypeface.FromFamilyName(null, SKFontStyleWeight.Medium, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
                     },
                     DataLabelsSize = 14,
                     DataLabelsFormatter = point =>
@@ -631,7 +629,8 @@ namespace Fam
                         return $"{point.Context.Series.Name}\n{percent:P0}";
                     },
                     IsHoverable = false,
-                    ToolTipLabelFormatter = point => $"{point.Coordinate.PrimaryValue:N0}",
+                    ToolTipLabelFormatter = point => $"{point.Coordinate.PrimaryValue:N0}", 
+                    //InnerRadius=100, 
                     //Stroke = new SolidColorPaint(SKColors.Gainsboro, 2f),
                 });
 
@@ -651,6 +650,7 @@ namespace Fam
                     },
                     IsHoverable = false,
                     ToolTipLabelFormatter = point => $"{point.Coordinate.PrimaryValue:N0}",
+                    //InnerRadius=100,
                 });
 
             //_categoryseries = _categoryseriestemp.ToArray();

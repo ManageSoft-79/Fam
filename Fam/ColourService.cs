@@ -13,11 +13,11 @@ namespace Fam
 
         public static Dictionary<TaxCategory, SKColor> Categorycolours = new Dictionary<TaxCategory, SKColor>()
         {
-            {TaxCategory.GoldSilverETFs, SKColor.FromHsl(215, 60, 55)}, // blue
-            {TaxCategory.Others, SKColor.FromHsl(145, 50, 50)}, // green
-            {TaxCategory.Debt, SKColor.FromHsl(45,75,60)}, // yellow
-            {TaxCategory.Equity, SKColor.FromHsl(5,75,60)}, // red
-            {TaxCategory.Uncategorised, SKColor.FromHsl(95,5,81)}, // gray
+             {TaxCategory.Equity, SKColor.FromHsl(5,75,60)}, // red
+             {TaxCategory.Debt, SKColor.FromHsl(45,75,60)}, // yellow
+             {TaxCategory.Others, SKColor.FromHsl(145, 50, 50)}, // green
+             {TaxCategory.GoldSilverETFs, SKColor.FromHsl(215, 60, 55)}, // blue      
+             {TaxCategory.Uncategorised, SKColor.FromHsl(95,5,81)}, // gray
         };
 
         public static void CreateSubcateogycolours(List<Tuple<string, TaxCategory>> subcategorylist)
@@ -26,7 +26,7 @@ namespace Fam
 
             foreach (TaxCategory category in Enum.GetValues<TaxCategory>())
             {
-                var subcategories = subcategorylist.Where(x => x.Item2 == category).OrderBy(x=> x.Item1);
+                var subcategories = subcategorylist.Where(x => x.Item2 == category).OrderBy(x => x.Item1);
 
                 Categorycolours[category].ToHsl(out float h, out float s, out float l);
 

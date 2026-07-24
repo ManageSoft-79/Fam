@@ -86,10 +86,10 @@ namespace Fam
                     Portfolio portfolio = DataService.ReadData<Portfolio>(filepath);
                     portfolio.SaveFilePath = filepath;
                     FileService.AddtoRecentfiles(filepath);
-                    Task.Run(() => portfolio.Loadportfolio());
-
+                   
                     DashWindow DashWin = new() { Owner = this, DataContext = portfolio };
                     DashWin.Show();
+                    Task.Run(() => portfolio.Loadportfolio());
 
                     Hide();
                 }
@@ -116,10 +116,10 @@ namespace Fam
                     Portfolio portfolio = DataService.ReadData<Portfolio>(file.Filepath);
                     portfolio.SaveFilePath = file.Filepath;
                     FileService.AddtoRecentfiles(file.Filepath);
-                    Task.Run(() => portfolio.Loadportfolio());
-
+                   
                     DashWindow DashWin = new() { Owner = this, DataContext = portfolio };
                     DashWin.Show();
+                    Task.Run(() => portfolio.Loadportfolio());
 
                     Hide();
                 }

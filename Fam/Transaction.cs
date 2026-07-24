@@ -21,32 +21,31 @@ namespace Fam
         }
 
         [DataMember]
-        public DateTime Date { get; }
+        public DateTime Date { get; private set; }
         [DataMember]
         private readonly string _nameoriginal;
         [DataMember]
-        public string Name { get; }
+        public string Name { get; private set; }
         [DataMember]
-        public string Folio { get; }
+        public string Folio { get; private set; }
         [DataMember]
-        public string TransactionName { get; }
+        public string TransactionName { get; private set; }
         [DataMember]
-        public decimal Units { get; }
+        public decimal Units { get; private set; }
         [DataMember]
-        public decimal NAV { get; }
+        public decimal NAV { get; private set; }
         [DataMember]
-        public string ISIN { get; }
+        public string ISIN { get; private set; }
         [DataMember]
         public readonly List<Tuple<Transaction, decimal>> BalancedTransactions = new();
 
         [DataMember]
-        public string CpCode { get; }
+        public string CpCode { get; private set; }
         [DataMember]
-        public string FundName { get; }
+        public string FundName { get; private set; }
 
         [DataMember]
         private readonly TransactionType _transactiontype;
-
         public TransactionType Transactiontype => _transactiontype;
 
         [DataMember]

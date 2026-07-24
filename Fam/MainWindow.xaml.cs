@@ -2,6 +2,7 @@
 using System.IO;
 using System.Transactions;
 using System.Windows;
+using System.Windows.Controls;
 
 
 namespace Fam
@@ -15,12 +16,14 @@ namespace Fam
         {
             InitializeComponent();
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            FileService.ReadRecentfileslist();
+            lvRecents.DataContext = FileService.Recentfiles;
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             initiateHttpclient();
-
             await DataService.LoadMaster();
             await DataService.DownloadNavAsync();
             DataService.ReadNAVdata();
@@ -80,8 +83,9 @@ namespace Fam
 
                 try
                 {
-                    Portfolio portfolio = (Portfolio)DataService.ReadData(filepath);
+                    Portfolio portfolio = DataService.ReadData<Portfolio>(filepath);
                     portfolio.SaveFilePath = filepath;
+                    FileService.AddtoRecentfiles(filepath);
                     Task.Run(() => portfolio.Loadportfolio());
 
                     DashWindow DashWin = new() { Owner = this, DataContext = portfolio };
@@ -99,6 +103,42 @@ namespace Fam
         private void butDownloadlinks_Click(object sender, RoutedEventArgs e)
         {
             new LinksWindow() { Owner = this }.ShowDialog();
+        }
+
+        private void borderRecentitem_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var file = ((Recentfile)((Border)sender).DataContext);
+
+            if (File.Exists(file.Filepath))
+            {
+                try
+                {
+                    Portfolio portfolio = DataService.ReadData<Portfolio>(file.Filepath);
+                    portfolio.SaveFilePath = file.Filepath;
+                    FileService.AddtoRecentfiles(file.Filepath);
+                    Task.Run(() => portfolio.Loadportfolio());
+
+                    DashWindow DashWin = new() { Owner = this, DataContext = portfolio };
+                    DashWin.Show();
+
+                    Hide();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Could not load file due to following error: \n" + ex.Message);
+                }
+            }
+            else
+            {
+                MessageBox.Show("File doesn't exist: " + file.Name, "Error");
+            }
+        }
+
+        private void butRemovefile_Click(object sender, RoutedEventArgs e)
+        {
+            var file = (Recentfile)((MenuItem)sender).DataContext;
+
+            FileService.RemoveRecentfile(file);
         }
     }
 }

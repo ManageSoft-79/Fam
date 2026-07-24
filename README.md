@@ -15,7 +15,7 @@ Supported files:
   - https://mfs.kfintech.com/investor/General/InvestorTransactionReport
 - Kuvera's Transactions csv export
 
-Requires full history for FIFO calculations. Hence request transaction statements from a date before you started investing.
+Full history is required for correct FIFO calculations. Hence request the transaction statements from a date before you started investing.
 
 In Fam load all files of same account together.
 
@@ -25,12 +25,10 @@ In Fam load all files of same account together.
 - Categories & subcategories overview
 - Capital gains
 - Fund wise and capital gain wise transactions
+- Categories chart
 
 **Planned features**:
 - More transaction filetypes
-- Category charts
-
-
 
 **Note on Tax categories:**
 

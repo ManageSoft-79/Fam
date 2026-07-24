@@ -11,15 +11,15 @@ namespace Fam
     public class Mutualfund : INotifyPropertyChanged
     {
         [DataMember]
-        public string Name { get; }
+        public string Name { get; private set; }
         [DataMember]
         public readonly string CleanName;
         [DataMember]
-        public string Folio { get; }
+        public string Folio { get; private set; }
         [DataMember]
         public string ISIN { get; set; }
         [DataMember]
-        public string CpCode { get; }
+        public string CpCode { get; private set; }
         [DataMember]
         public string SchemeCode { get; set; }
 
@@ -44,6 +44,9 @@ namespace Fam
 
         [DataMember]
         public string Purename { get; set; } = "";
+
+        [DataMember]
+        public Goal Goal { get; set; }
 
         public NAVmutualfund? navMutualfund { get; set; }
 

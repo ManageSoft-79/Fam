@@ -18,6 +18,8 @@ namespace Fam
             InitializeComponent();
 
             toggleTrasactions.IsChecked = true;
+
+            //piechartCategories.Tooltip =new CustomTooltip();
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -42,7 +44,7 @@ namespace Fam
                 }
             }
 
-            Owner?.Close();
+            Owner?.Show();
         }
 
         private void butSave_Click(object sender, RoutedEventArgs e)
@@ -65,6 +67,8 @@ namespace Fam
                 }
             }
             else DataService.SaveData(portfolio.SaveFilePath, portfolio);
+
+            FileService.AddtoRecentfiles(portfolio.SaveFilePath);
         }
 
         private void toggle_CheckedChanged(object sender, RoutedEventArgs e)
@@ -152,7 +156,8 @@ namespace Fam
             portfolio.OnPropertyChanged(nameof(Portfolio.Capitalgains));
             portfolio.OnPropertyChanged(nameof(Portfolio.Folios));
 
-            portfolio.CreateCategorycharts();
+            //DataService.CreateSubcategorycolours();
+            //portfolio.CreateCategorychart();
         }
 
         private void butDownloadlinks_Click(object sender, RoutedEventArgs e)

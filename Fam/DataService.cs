@@ -4,10 +4,9 @@ using System.IO;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Runtime.Serialization;
+using System.Security.Cryptography;
 using System.Text.Json;
-using System.Transactions;
 using System.Windows;
-using System.Xml;
 
 namespace Fam
 {
@@ -31,13 +30,13 @@ namespace Fam
                 serialiser.WriteObject(fs, data);
         }
 
-        public static object ReadData(string filepath)
+        public static T ReadData<T>(string filepath)
         {
             var settings = new DataContractSerializerSettings { PreserveObjectReferences = true };
-            var serialiser = new DataContractSerializer(typeof(object), settings);
+            var serialiser = new DataContractSerializer(typeof(T), settings);
 
             using (FileStream fs = new FileStream(filepath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                return serialiser.ReadObject(fs);
+                return (T)serialiser.ReadObject(fs);
         }
 
         public static bool CheckSaved(string filepath, object data)
@@ -48,16 +47,20 @@ namespace Fam
             var settings = new DataContractSerializerSettings { PreserveObjectReferences = true };
             var serialiser = new DataContractSerializer(data.GetType(), settings);
 
-            using (var stringWriter = new StringWriter())
+            using (MemoryStream memorystream = new MemoryStream())
             {
-                using (var xmlWriter = XmlWriter.Create(stringWriter))
-                    serialiser.WriteObject(xmlWriter, data);
+                serialiser.WriteObject(memorystream, data);
+                byte[] currentbytes = memorystream.ToArray();
 
-                var xmldata = stringWriter.ToString();
-                var saveddata = File.ReadAllText(filepath);
+                byte[] savedbytes = File.ReadAllBytes(filepath);
 
-                return xmldata == saveddata;
+                if (currentbytes.Length != savedbytes.Length)
+                    return false;
+
+                return CryptographicOperations.FixedTimeEquals(currentbytes, savedbytes);
             }
+
+            GC.Collect();
         }
 
         public static bool ConnectionIsAvailable(string url = "www.google.co.in")
@@ -167,8 +170,13 @@ namespace Fam
                                 item2.PortfolioMutualfund = item;
                     }
                 }
-
             }
+        }
+
+        public static void CreateSubcategorycolours()
+        {
+            List<Tuple<string, TaxCategory>> subcategorylist = NAVmutualfunds.DistinctBy(x => x.Taxcategory + x.Subcategory).Select(x => new Tuple<string, TaxCategory>(x.Subcategory, x.Taxcategory)).ToList();
+            ColourService.CreateSubcateogycolours(subcategorylist);
         }
 
         public static void CopyAllCategoriesAndSubcateogories()
@@ -406,11 +414,14 @@ namespace Fam
                                     var fundname = fundname_i >= 0 ? rowItems[fundname_i] : "";
                                     var cpcode = cpcode_i >= 0 ? rowItems[cpcode_i].Trim() : "";
                                     var amount = decimal.Parse(rowItems[amount_i].Trim()); // to check rejections
+                                    var folio = rowItems[folio_i].Trim();
+                                    if (folio[^1] == '/')
+                                        folio = folio.Substring(0, folio.Length - 1);
 
                                     transactions.Add(new Transaction(
                                         date: DateTime.ParseExact(rowItems[date_i].Trim(), ["dd-MMM-yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture),
                                        name: rowItems[name_i].Trim(),
-                                       folio: rowItems[folio_i].Trim(),
+                                       folio: folio,
                                        transactionName: rowItems[transaction_i].Trim(),
                                        units: units,
                                        price: decimal.Parse(rowItems[nav_i].Trim()),
@@ -482,11 +493,14 @@ namespace Fam
                                     var fundname = fundname_i >= 0 ? reader.GetValue(fundname_i).ToString() : "";
                                     var cpcode = cpcode_i >= 0 ? reader.GetValue(cpcode_i).ToString().Trim() : "";
                                     var amount = decimal.Parse(reader.GetValue(amount_i).ToString().Trim()); // to check rejections
+                                    var folio = reader.GetValue(folio_i).ToString().Trim();
+                                    if (folio[^1] == '/')
+                                        folio = folio.Substring(0, folio.Length - 1);
 
                                     transactions.Add(new Transaction(
                                        date: DateTime.ParseExact(reader.GetValue(date_i).ToString().Trim(), ["dd-MMM-yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture),
                                        name: reader.GetValue(name_i).ToString().Trim(),
-                                       folio: reader.GetValue(folio_i).ToString().Trim(),
+                                       folio: folio,
                                        transactionName: reader.GetValue(transaction_i).ToString().Trim(),
                                        units: units,
                                        price: decimal.Parse(reader.GetValue(nav_i).ToString().Trim()),
@@ -531,5 +545,7 @@ namespace Fam
 
             return transactions;
         }
+
+
     }
 }

@@ -2,6 +2,7 @@
 using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
+using LiveChartsCore.SkiaSharpView.SKCharts;
 using SkiaSharp;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -124,12 +125,12 @@ namespace Fam
         }
         //public ObservableCollection<Mutualfund> Mutualfunds_inclzeroholding => new ObservableCollection<Mutualfund>(_mutualfunds);
 
-        public ObservableCollection<Category> Categories => new ObservableCollection<Category>(_categories.Where(x => _filtermutualfundswithholdings.Any(y => y.Taxcategory == x.Taxcategory)));
+        public ObservableCollection<Category> Categories => _categories != null ? new ObservableCollection<Category>(_categories.Where(x => _filtermutualfundswithholdings.Any(y => y.Taxcategory == x.Taxcategory))) : new();
         public ObservableCollection<Category> Subcategories
         {
             get
             {
-                //return new ObservableCollection<Category>(_subcategories);
+                _subcategories ??= new List<Category>();
                 var collection = new ObservableCollection<Category>(_subcategories.Where(x => _filtermutualfundswithholdings.Any(y => y.Subcategory == x.Name)).OrderBy(x => x.Taxcategory));
                 var view = (CollectionView)CollectionViewSource.GetDefaultView(collection);
                 view.GroupDescriptions.Clear();
@@ -138,13 +139,14 @@ namespace Fam
             }
         }
 
-        private IEnumerable<ISeries> _categoryseries;
-        public ObservableCollection<ISeries> Categoryseries => _categoryseries != null ? new(_categoryseries) : new();
+        //private IEnumerable<ISeries> _categoryseries;
+        public ObservableCollection<ISeries> Categoryseries { get; private set; } = new();
 
         public ObservableCollection<Capitalgain> Capitalgains
         {
             get
             {
+                _capitalgains ??= new List<Capitalgain>();
                 var collection = new ObservableCollection<Capitalgain>(_capitalgains.OrderByDescending(x => x.Year));
                 var view = (CollectionView)CollectionViewSource.GetDefaultView(collection);
                 view.GroupDescriptions.Clear();
@@ -343,6 +345,7 @@ namespace Fam
                 if (mutualfund.navMutualfund != null && mutualfund.navMutualfund.Taxcategory == TaxCategory.Uncategorised)
                     mutualfund.navMutualfund.Taxcategory = DataService.GetTaxcategory(mutualfund.navMutualfund);
             }
+            DataService.CreateSubcategorycolours();
 
             OnPropertyChanged(nameof(Mutualfunds));
         }
@@ -544,7 +547,7 @@ namespace Fam
                 _subcategories = _subcategories.OrderBy(x => x.Name).ToList();
 
                 CreateCategoryratios();
-                CreateCategorycharts();
+                CreateCategorychart();
             }
 
             OnPropertyChanged(nameof(Categories));
@@ -600,42 +603,57 @@ namespace Fam
             }
         }
 
-        public void CreateCategorycharts()
+        public void CreateCategorychart()
         {
             var mutualfundswithholdings = _filtermutualfundswithholdings.Where(x => x.BalAmt > 0);
             var totalLatestamt = mutualfundswithholdings.Sum(x => x.LatestAmount);
 
             //_categoryseries = _categories.Select(x => new PieSeries<double> { Values = new double[] { (double)(x.LatestAmount / totalLatestamt) }, Name = x.Name, MaxRadialColumnWidth = 100 }).ToArray();
 
-            _categoryseries = new ISeries[]
-            {
-                new PieSeries<double> {
-                    Name = "Equity", Values = new double[] { 50, 0 },
-                    Fill = new SolidColorPaint(SKColors.RoyalBlue), DataLabelsPaint = new SolidColorPaint(SKColors.White),
-                    DataLabelsSize = 12, DataLabelsFormatter = point =>
+            Categoryseries = new ObservableCollection<ISeries>();
+
+            foreach (Category item in Categories)
+                Categoryseries.Add(new PieSeries<double>
+                {
+                    Name = item.Taxcategory.ToString(),
+                    Values = new double[] { Math.Round((double)item.LatestAmount, 0), 0 },
+                    Fill = new SolidColorPaint(ColourService.Categorycolours[item.Taxcategory]),
+                    DataLabelsPaint = new SolidColorPaint
                     {
-                    if (point.Coordinate.PrimaryValue == 0) return string.Empty;
-                    double percent = point.StackedValue.Share;
-                    return $"{percent:P0}";
-                    }, },
-                new PieSeries<double> {
-                    Name = "Eq1",
-                    Values = new double[] { 0, 30 },
-                    Fill = new SolidColorPaint(SKColors.CornflowerBlue),
-                    DataLabelsPaint = new SolidColorPaint(SKColors.Black),
-                    DataLabelsSize = 12, DataLabelsFormatter = point =>
-                    {
-                    if (point.Coordinate.PrimaryValue == 0) return string.Empty;
-                    double percent = point.StackedValue.Share;
-                    return $"{point.Context.Series.Name}: {percent:P0}";
+                        Color = SKColors.Black,
+                        SKTypeface = SKTypeface.FromFamilyName(null, SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright),
                     },
-                    DataLabelsPosition = PolarLabelsPosition.Outer, },
-                new PieSeries<double> { Name = "Eq2", Values = new double[] { 0, 20 },   Fill = new SolidColorPaint(SKColors.DodgerBlue) },
-                new PieSeries<double> { Name = "Debt", Values = new double[] { 40, 0 },   Fill = new SolidColorPaint(SKColors.DarkGreen) },
-                new PieSeries<double> { Name = "D1", Values = new double[] { 0, 40 },   Fill = new SolidColorPaint(SKColors.ForestGreen) },
-                new PieSeries<double> { Name = "Others", Values = new double[] { 10, 0 },   Fill = new SolidColorPaint(SKColors.Goldenrod) },
-                new PieSeries<double> { Name = "C1", Values = new double[] { 0, 10 },   Fill = new SolidColorPaint(SKColors.Beige) },
-            };
+                    DataLabelsSize = 14,
+                    DataLabelsFormatter = point =>
+                    {
+                        if (point.Coordinate.PrimaryValue == 0) return string.Empty;
+                        double percent = point.StackedValue.Share;
+                        return $"{point.Context.Series.Name}\n{percent:P0}";
+                    },
+                    IsHoverable = false,
+                    ToolTipLabelFormatter = point => $"{point.Coordinate.PrimaryValue:N0}",
+                    //Stroke = new SolidColorPaint(SKColors.Gainsboro, 2f),
+                });
+
+            foreach (Category item in Subcategories)
+                Categoryseries.Add(new PieSeries<double>
+                {
+                    Name = item.Name,
+                    Values = new double[] { 0, Math.Round((double)item.LatestAmount, 0) },
+                    Fill = new SolidColorPaint(ColourService.Subcategorypaint(item.Taxcategory.ToString() + "-" + item.Name)),
+                    DataLabelsPaint = new SolidColorPaint(SKColors.Black),
+                    DataLabelsSize = 14,
+                    DataLabelsFormatter = point =>
+                    {
+                        if (point.Coordinate.PrimaryValue == 0) return string.Empty;
+                        double percent = point.StackedValue.Share;
+                        return $"{percent:P0}";
+                    },
+                    IsHoverable = false,
+                    ToolTipLabelFormatter = point => $"{point.Coordinate.PrimaryValue:N0}",
+                });
+
+            //_categoryseries = _categoryseriestemp.ToArray();
 
             OnPropertyChanged(nameof(Categoryseries));
         }

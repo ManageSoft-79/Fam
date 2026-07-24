@@ -89,7 +89,7 @@
             <Grid Grid.Row="1" ColumnDefinitions="auto,*" Margin="0,10,0,0">
                 <StackPanel Margin="0,0,10,0">
                     <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleTrasactions" Content="Transactions" Margin="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" Padding="35,10" Background="White" BorderThickness="0" />
-                    <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleOverview" Content="Overview" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
+                    <!--<RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleOverview" Content="Overview" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />-->
 
                     <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleMutualfunds" Content="Mutual funds" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
                     <RadioButton GroupName="Group1" Style="{StaticResource {x:Type ToggleButton}}" x:Name="toggleCategories" Content="Categories" Margin="0,10,0,0" Padding="35,10" Background="White" BorderThickness="0" Checked="toggle_CheckedChanged" Unchecked="toggle_CheckedChanged" />
@@ -778,10 +778,10 @@
 
                         <!--Chart-->
                         <Grid x:Name="gridChart" RowDefinitions="auto,*,auto" Margin="10" d:Visibility="Visible" Visibility="Collapsed">
-                            
+
                             <UserControl Template="{StaticResource ResourceKey='commonrow'}" />
 
-                            <lvc:PieChart Series="{Binding Categoryseries}" InitialRotation="-90" Background="Transparent" LegendPosition="Bottom" TooltipPosition="Hidden" LegendTextSize="12" Grid.Row="1" RenderOptions.BitmapScalingMode="NearestNeighbor" UseLayoutRounding="True" SnapsToDevicePixels="True" />
+                            <lvc:PieChart x:Name="piechartCategories" Series="{Binding Categoryseries}" InitialRotation="-90" LegendPosition="Right" LegendTextSize="12" Grid.Row="1" RenderOptions.BitmapScalingMode="NearestNeighbor" UseLayoutRounding="True" SnapsToDevicePixels="True" />
                         </Grid>
 
                         <!--Folios-->

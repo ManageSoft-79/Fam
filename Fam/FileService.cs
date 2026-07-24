@@ -1,8 +1,11 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 
 namespace Fam
@@ -39,6 +42,47 @@ namespace Fam
             }
 
             return new string[] { };
+        }
+
+        [DataMember]
+        public static ObservableCollection<Recentfile> Recentfiles = new();
+
+        public static void ReadRecentfileslist()
+        {
+            try
+            {
+                var options = new JsonSerializerOptions { IgnoreReadOnlyProperties = true };
+                Recentfiles = JsonSerializer.Deserialize<ObservableCollection<Recentfile>>(Properties.Settings.Default.Recentfiles);
+            }
+            catch
+            {
+                Recentfiles = new ObservableCollection<Recentfile>();
+                Properties.Settings.Default.Recentfiles = JsonSerializer.Serialize(Recentfiles);
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        public static void AddtoRecentfiles(string filepath)
+        {
+            var options = new JsonSerializerOptions { IgnoreReadOnlyProperties = true };
+
+            if (!Recentfiles.Any(x => x.Filepath == filepath))
+            {
+                Recentfiles.Add(new Recentfile(filepath));
+                Properties.Settings.Default.Recentfiles = JsonSerializer.Serialize(Recentfiles, options);
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        public static void RemoveRecentfile(Recentfile file)
+        {
+            if (Recentfiles.Contains(file))
+                Recentfiles.Remove(file);
+
+            var options = new JsonSerializerOptions { IgnoreReadOnlyProperties = true };
+
+            Properties.Settings.Default.Recentfiles = JsonSerializer.Serialize(Recentfiles, options);
+            Properties.Settings.Default.Save();
         }
     }
 }
